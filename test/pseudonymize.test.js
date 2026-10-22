@@ -4,7 +4,7 @@ import { pseudonymizeTexts, restore } from '../lib/pseudonymize.js';
 
 const meta = {
   from: { name: 'Anna Berger', address: 'anna.berger@beispiel-versicherung.at' },
-  to: [{ name: 'Barni Kiss', address: 'barnabas.kiss@faircheck.at' }],
+  to: [{ name: 'Barni Kiss', address: 'barni.kiss@firma.example' }],
   cc: [],
 };
 const subject = 'Dringend: Rückruf zu Schaden Nr. 2026-778 bis Freitag';

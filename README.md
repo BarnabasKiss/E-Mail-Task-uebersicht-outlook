@@ -3,6 +3,21 @@
 Lokaler Mini-Mailclient. Zeigt die in n8n bewerteten Mails, übernimmt Aufgaben nach Obsidian (`📋 3 Aufgaben.md`),
 schreibt Antwortentwürfe über das lokale `claude -p` und lernt aus deinen gesendeten Antworten.
 
+## Überblick: so hängt alles zusammen
+
+```
+Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─► n8n "Mail-App Schnittstelle" ◄─► diese App (localhost)
+           pseudonymisiert,        (Status: neu, done,                (Webhook, Token)                 │
+           Modell bewertet,         angenommen, beantwortet)                                            ├─► Obsidian: 📋 3 Aufgaben.md
+           Platzhalter zurück                                                                           └─► claude -p (lokal): Entwürfe, Lernen
+```
+
+- **n8n** (Server): holt neue Outlook-Mails, ersetzt personenbezogene Daten durch Platzhalter, lässt ein Modell Dringlichkeit,
+  Zusammenfassung und Aufgabenvorschlag bestimmen, setzt die Daten wieder ein und speichert eine Zeile pro Mail.
+  Genaue Beschreibung zum Nachbauen: **[n8n/README.md](n8n/README.md)** (Nodes, Einstellungen, Code, Prompts, Datentabelle).
+- **Diese App** (lokal): liest die Zeilen über einen Webhook, zeigt sie wie einen Posteingang, übernimmt Aufgaben in die Obsidian-Liste,
+  erzeugt Antwortentwürfe und merkt sich Regeln in `Mail-Regeln.md`. Sie schreibt nie in Outlook.
+
 ## Auf einem neuen Gerät einrichten
 1. Repo klonen, Node.js 20 oder neuer und die Claude-Code-CLI (`claude`) installieren und anmelden.
 2. `config.example.json` nach `config.json` kopieren und ausfüllen: n8n-Adresse und Token (Header `x-app-token` aus dem
