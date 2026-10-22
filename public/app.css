@@ -283,3 +283,5 @@ a.att:hover { background: var(--hover); }
 .att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .att-size { color: var(--faint); white-space: nowrap; }
 .att-ai { display: inline-flex; color: var(--accent); }
+.att-preview { align-self: center; font-size: 12px; margin-left: 4px; }
+.why.att-review { color: var(--accent); }

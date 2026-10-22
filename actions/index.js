@@ -5,5 +5,6 @@ import del from './delete.js';
 import restore from './restore.js';
 import snooze from './snooze.js';
 import regenerateDraft from './regenerate-draft.js';
+import reviewRevert from './review-revert.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, reviewRevert].map((a) => [a.name, a]));

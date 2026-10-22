@@ -160,6 +160,15 @@ async function select(id, { keepView = true } = {}) {
       snooze: (until) => perform('snooze', { id, until }, { message: 'Zurückgestellt' }),
       reload: () => select(id),
       attachments: () => api.attachments(id),
+      revertReview: async () => {
+        try {
+          await api.action('review-revert', { id });
+          await loadList();
+        } catch (e) {
+          toast(e.message, { error: true });
+        }
+        select(id);
+      },
       regenerate: async () => {
         try {
           await api.action('regenerate-draft', { id });

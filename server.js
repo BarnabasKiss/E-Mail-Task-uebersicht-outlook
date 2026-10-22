@@ -10,6 +10,7 @@ import { createRules } from './lib/rules.js';
 import { createMatcher } from './lib/matcher.js';
 import { createDrafts } from './lib/drafts.js';
 import { createAttachments } from './lib/attachments.js';
+import { createAttachmentReview } from './lib/attachment-review.js';
 import { createLearner } from './lib/learner.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
@@ -31,9 +32,19 @@ const drafts = createDrafts({
   readAttachments: cfg.attachments?.readByAi !== false,
 });
 const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames });
-const scheduler = createScheduler({ n8n, drafts, learner, store, poll: cfg.poll, log });
+// Modul "Bewertung mit Anhängen": nur mit attachments.review.enabled, sonst läuft die App wie ohne.
+let scheduler;
+const review =
+  cfg.attachments?.review?.enabled && cfg.attachments?.readByAi !== false
+    ? createAttachmentReview({ attachments, drafts, claude, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, getScheduler: () => scheduler, review: cfg.attachments.review, dataDir: cfg.dataDir, log })
+    : null;
+scheduler = createScheduler({
+  n8n, drafts, learner, store, poll: cfg.poll, log,
+  decorate: review?.decorate,
+  extraJobs: review ? [['review', review.run, cfg.poll.reviewSec ?? 90]] : [],
+});
 
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments });
+const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review });
 const server = http.createServer(handler);
 server.listen(cfg.port, '127.0.0.1', () => {
   log(`Mail-App läuft auf http://localhost:${cfg.port}`);

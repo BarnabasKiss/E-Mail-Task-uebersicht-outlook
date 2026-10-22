@@ -37,7 +37,7 @@ const sub = (type, value) => {
 const esc = (s) => s.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&');
 
 const TITLES = /^(Herr|Frau|Dr|Mag|DI|Ing|Prof|Dipl|und|von|van|der|de)$/i;
-const CORP = /(GmbH|AG|KG|OG|Versicherung|Service|Team|Support|Office|Info|noreply|no-reply|Kundenservice|Schaden|Abteilung)/i;
+const CORP = /\b(?:GmbH|AG|KG|OG)\b|(?:Versicherung|Service|Team|Support|Office|Info|noreply|no-reply|Kundenservice|Schaden|Abteilung)/i; // Rechtsformen nur als ganzes Wort (sonst trifft AG Namen wie Agnes)
 const STOP = /^(Team|Zusammen|Kolleg|Allerseits|Damen|Herren|Alle|Kunde|Kunden|Leute)/i;
 
 const groups = [];

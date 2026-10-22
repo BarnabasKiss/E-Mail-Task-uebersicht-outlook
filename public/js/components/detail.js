@@ -13,7 +13,7 @@ const formatSize = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.
 function createAttachmentsBox(proposalId, load) {
   const box = el('section', { class: 'attachments', 'aria-label': 'Anhänge', hidden: true });
   load()
-    .then(({ items, readByAi }) => {
+    .then(({ items, readByAi, canPreview }) => {
       if (!items.length) return;
       box.replaceChildren(
         icon('paperclip', 14),
@@ -33,6 +33,7 @@ function createAttachmentsBox(proposalId, load) {
               ? el('span', { class: 'att disabled', title: hint }, body)
               : el('a', { class: 'att', href, target: '_blank', rel: 'noopener', title: `${a.name}\n${hint}` }, body);
           }),
+          canPreview && el('a', { class: 'link att-preview', href: `/api/proposals/${proposalId}/attachments/review-preview`, target: '_blank', rel: 'noopener', title: 'Zeigt den anonymisierten Text, der an Claude gehen würde (wird dabei nicht gesendet).' }, 'Was geht an Claude?'),
         ),
       );
       box.hidden = false;
@@ -149,6 +150,13 @@ export function renderDetail(container, data, ctx) {
     'div',
     { class: 'msg-summary' },
     el('p', {}, p.zusammenfassung || 'Keine Zusammenfassung vorhanden.'),
+    p.anhang_bewertung && !done && el(
+      'p',
+      { class: 'why att-review' },
+      icon('paperclip', 13),
+      el('span', {}, `Mit Anhängen neu bewertet (${(p.anhang_bewertung.anhaenge || []).join(', ')}). Vorher: ${URGENCY_LABEL[p.anhang_bewertung.vorher] || p.anhang_bewertung.vorher}. `),
+      el('button', { class: 'link', type: 'button', onclick: handlers.revertReview }, 'Zurücksetzen'),
+    ),
     p.begruendung && !done && el('p', { class: 'why' }, icon('sparkle', 13), el('span', {}, p.begruendung), p.durch_regel && el('em', {}, ` (per Regel von „${URGENCY_LABEL[p.dringlichkeit_original] || p.dringlichkeit_original}“ geändert)`)),
   );
   const messageView = el(
