@@ -21,19 +21,25 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ## Auf einem neuen Gerät einrichten
 1. Repo klonen, Node.js 20 oder neuer und die Claude-Code-CLI (`claude`) installieren und anmelden.
 2. `config.example.json` nach `config.json` kopieren und ausfüllen: n8n-Adresse und Token (Header `x-app-token` aus dem
-   n8n-Workflow „Mail-App Schnittstelle“), Pfad zum Obsidian-Vault, Pfad zu `claude.exe`, eigene Adresse und Namen.
+   n8n-Workflow „Mail-App Schnittstelle“), Pfad zum Obsidian-Vault, Pfad zu `claude` (`claude.exe` unter Windows), eigene Adresse und Namen.
 3. Starten wie unten beschrieben. `config.json` und `Mail-Regeln.md` stehen bewusst **nicht** im Repo (Token, Pfade, persönliche Regeln).
    `Mail-Regeln.md` entsteht beim ersten Start neu. Wer dieselben Regeln auf mehreren Geräten will, kopiert die Datei von Hand.
-4. Zustand (Entwürfe, Zuordnungen, Zurückgestelltes) liegt pro Gerät in `%LOCALAPPDATA%\mail-app` und wird nicht geteilt.
+4. Zustand (Entwürfe, Zuordnungen, Zurückgestelltes) liegt pro Gerät in `%LOCALAPPDATA%\mail-app` (Linux/macOS:
+   `$XDG_DATA_HOME/mail-app`, meist `~/.local/share/mail-app`) und wird nicht geteilt.
    Die Mails selbst und ihr Status (Offen, Done) liegen in n8n und sind auf allen Geräten gleich.
 
 ## Starten
 
-- Einmalig: `powershell -File install-autostart.ps1` (Autostart beim Anmelden, unsichtbar)
+- Einmalig Windows: `powershell -File install-autostart.ps1` (Autostart beim Anmelden, unsichtbar)
+- Einmalig Linux: `./install-autostart.sh` (systemd-Benutzerdienst `mail-app`, startet sofort und bei jeder Anmeldung)
 - Sofort starten: `wscript.exe start-hidden.vbs` oder im Terminal `node server.js`
 - Öffnen: `Mail-App öffnen.url` oder http://localhost:4711
-- Log: `%LOCALAPPDATA%\mail-app\server.log` (wird nicht automatisch gekürzt)
-- Entfernen: `uninstall-autostart.ps1`
+- Log Windows: `%LOCALAPPDATA%\mail-app\server.log` (wird nicht automatisch gekürzt)
+- Log Linux: `journalctl --user -u mail-app -f`
+- Entfernen: `uninstall-autostart.ps1` bzw. `./uninstall-autostart.sh`
+
+Pfade in `config.json` dürfen `%VAR%` und `~` enthalten. `%LOCALAPPDATA%` wird unter Linux/macOS durch den
+XDG-Datenordner ersetzt, `dataDir` kann also auf allen Systemen gleich bleiben. Vault- und Claude-Pfad sind pro Gerät verschieden.
 
 Voraussetzung: Node.js 20 oder neuer. Es gibt keine Pakete zu installieren.
 
