@@ -13,6 +13,7 @@ export const api = {
   proposals: () => request('GET', '/api/proposals'),
   refresh: () => request('POST', '/api/refresh', {}),
   detail: (id) => request('GET', `/api/proposals/${id}`),
+  attachments: (id) => request('GET', `/api/proposals/${id}/attachments`),
   match: (id, force = false) => request('POST', `/api/proposals/${id}/match${force ? '?force=1' : ''}`, {}),
   action: (name, payload) => request('POST', `/api/actions/${name}`, payload),
   status: () => request('GET', '/api/status'),

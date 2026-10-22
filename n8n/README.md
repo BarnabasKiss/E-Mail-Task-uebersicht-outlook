@@ -7,7 +7,8 @@ oder ein Hinweis dabei. Der Code der Code-Nodes liegt als Dateien in [`code/`](c
 ```
 Outlook ──► [1] Mail-Eingang ──► Datentabelle "Mail-Vorschläge" ◄──► [2] Mail-App Schnittstelle ◄──► Mini-App (localhost)
             (Pseudonymisieren, Modell,                              (Webhook: list, setStatus,
-             Rückübersetzen, Speichern)                              getMail, hasReply, delete)
+             Rückübersetzen, Speichern)                              getMail, hasReply, delete,
+                                                              listAttachments, getAttachment)
 ```
 
 Dazu in n8n anlegen (Namen sind frei wählbar):
@@ -99,7 +100,7 @@ Ablauf:
 
 1. **Token gültig?** – Node "If". `{{ $json.headers['x-app-token'] }}` *is equal to* dein Token (Groß/Klein beachten).
    *False* → Respond to Webhook, JSON `{ "error": "unauthorized" }`, Response Code **401**.
-2. **Aktion wählen** – Node "Switch", Modus *Rules*, **fünf** Regeln (`list`, `setStatus`, `getMail`, `hasReply`, `delete`) auf `{{ $json.body.action }}` (*String equals*), Ausgabe-Namen wie die Aktion,
+2. **Aktion wählen** – Node "Switch", Modus *Rules*, **sieben** Regeln (`list`, `setStatus`, `getMail`, `hasReply`, `delete`, `listAttachments`, `getAttachment`) auf `{{ $json.body.action }}` (*String equals*), Ausgabe-Namen wie die Aktion,
    plus Ausgang **Fallback** (*Extra*): Respond to Webhook, JSON `{ "error": "unknown action" }`, Code **400**.
 
 | Aktion | Body | Was passiert | Antwort |
@@ -109,11 +110,15 @@ Ablauf:
 | `getMail` | `id` (Outlook-ID = Spalte `mail_id`) | **Microsoft Outlook → Message → Get**, *Message ID* = `{{ $('Mail-App Anfrage').item.json.body.id }}` (Modus *By ID*), Output *Select Included Fields*: `body, from, toRecipients, ccRecipients, subject, receivedDateTime, conversationId, webLink`. Respond *First Incoming Item*. | die Mail (Graph-Format) |
 | `hasReply` | `id`, `conversationId`, optional `after` | **Microsoft Outlook → Message → Get Many**: *Limit* 50, *Read Status* **Both**, *Filter Query* `={{ "conversationId eq '" + $('Mail-App Anfrage').item.json.body.conversationId + "'" }}`, Output *Select Included Fields*: `from, body, subject, sentDateTime, isDraft, conversationId, parentFolderId`, **Always Output Data** an. Danach Code-Node [`code/eigene-antwort-finden.js`](code/eigene-antwort-finden.js), dann Respond *First Incoming Item*. | `{ "hasReply": bool, "messagesInConversation": n, "reply": { sentDateTime, subject, body } oder null }` |
 | `delete` | `id` (Zeilen-ID) | **Data table → Delete row(s)**: Bedingung `id` *equals* `{{ $json.body.id }}`, *Must match* **all conditions**. Respond JSON. | `{ "ok": true, "deleted": true }` |
+| `listAttachments` | `id` (Outlook-ID) | **Microsoft Outlook → Message Attachment → Get Many**: *Message ID* = `{{ $('Mail-App Anfrage').item.json.body.id }}` (Modus *By ID*), *Return All*, Felder `contentType, isInline, name, size`, **Always Output Data** an. Danach Code-Node [`code/anhangliste-bauen.js`](code/anhangliste-bauen.js), dann Respond *First Incoming Item*. | `{ "items": [ { id, name, contentType, size, isInline } ] }` |
+| `getAttachment` | `id` (Outlook-ID), `attachmentId` | **Microsoft Outlook → Message Attachment → Download**: *Message ID* wie oben, *Attachment ID* = `{{ $('Mail-App Anfrage').item.json.body.attachmentId }}` (Modus *By ID*), *Put Output in Field* `data`. Danach Code-Node [`code/anhang-kodieren.js`](code/anhang-kodieren.js), dann Respond *First Incoming Item*. | `{ name, contentType, size, contentBase64 }` |
+
+Beide Anhang-Aktionen haben in der Switch-Regel eine zweite Bedingung "ID nicht leer" (`getAttachment` zusätzlich "attachmentId nicht leer"), damit eine Anfrage ohne ID im Fallback (400) landet.
 
 **Wichtig bei `delete`:** Die Switch-Regel für `delete` hat **zwei** Bedingungen (UND): `action` ist `delete` **und**
 `{{ String($json.body.id ?? '') }}` *is not empty*. Ohne ID fällt die Anfrage in den Fallback (400), damit nie ohne Filter gelöscht wird.
 
-**Fehlerbehandlung bei Outlook:** Bei den Nodes für `getMail` und `hasReply` unter *Settings → On Error* **Continue (using error output)** wählen
+**Fehlerbehandlung bei Outlook:** Bei den Nodes für `getMail`, `hasReply`, `listAttachments` und `getAttachment` unter *Settings → On Error* **Continue (using error output)** wählen
 und den Fehler-Ausgang an einen Respond-to-Webhook-Node hängen: JSON
 `={{ JSON.stringify({ error: 'outlook', message: ($json.error && $json.error.message) || 'Outlook-Fehler' }) }}`, Code **502**.
 Ohne das antwortet der Webhook bei einem Outlook-Fehler leer mit 200, und die App kann ihn nicht erkennen.

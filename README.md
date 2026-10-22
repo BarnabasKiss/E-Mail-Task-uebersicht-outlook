@@ -53,6 +53,8 @@ Voraussetzung: Node.js 20 oder neuer. Es gibt keine Pakete zu installieren.
   - **Löschen** = Konversation vollständig aus der Übersicht entfernen (Tabellenzeile in n8n und alles Lokale, auch aus Done).
     Nicht rückgängig zu machen, mit Rückfrage. In Outlook bleibt die Mail unverändert.
   - **Done** enthält verworfene, übernommene (Aufgabe angelegt) und beantwortete Mails.
+- Anhänge stehen als Chips unter Absender und Empfängern (Signaturlogos und eingebettete Bilder werden ausgeblendet). PDF und Bilder öffnen
+  im Browser, alles andere wird heruntergeladen. Chips mit ✦ liest Claude beim Antwortentwurf mit (siehe Datenschutz).
 - Zusammenfassung oder Nachricht per Umschalter. Darunter die Aufgabe in einer Zeile und der Antwortentwurf.
 - Tasten: `j`/`k` oder Pfeile = nächste/vorherige Mail, `/` = Suche, `e` = in Done ablegen (in Done: zurückholen),
   `Entf` = löschen. Link zu einer Mail: `http://localhost:4711/#mail=ID`.
@@ -69,6 +71,7 @@ lib/
   rules.js           Regeldatei "Mail-Regeln.md" (im App-Ordner, nicht im Vault): lesen, Regeln anhängen, Dringlichkeitsregeln
   matcher.js         ordnet eine Aufgabe einer Überschrift zu oder schlägt eine neue vor (claude -p)
   pseudonymize.js    ersetzt personenbezogene Daten durch Platzhalter und stellt sie wieder her
+  attachments.js     Anhänge: Liste, Download über n8n, Textauszug (PDF, Word, Excel, PowerPoint, Text, Bilder per OCR)
   drafts.js          Antwortentwurf erzeugen
   learner.js         Entwurf mit gesendeter Antwort vergleichen, Regeln ableiten
   claude.js          ruft claude -p ohne Werkzeuge auf, nacheinander
@@ -98,6 +101,14 @@ Der Knopf "Regeln" in der App öffnet sie mit deinem Standardprogramm. Auf den V
 ## Datenschutz
 - Mails werden in n8n und in der App pseudonymisiert, bevor sie an ein Modell gehen. Die Logik steht in
   `lib/pseudonymize.js` und im n8n-Workflow "Mail-Eingang". Bei Änderungen beide angleichen.
+- Anhänge: Claude bekommt nie die Datei, nur den extrahierten Text, und der wird zusammen mit der Mail pseudonymisiert
+  (gleiche Platzhalter, auch die Dateinamen). Pro Anhang höchstens 12.000 Zeichen, insgesamt 30.000. Abschalten mit
+  `"attachments": { "readByAi": false }` in `config.json`. Die Regeln erkennen Namen nur über Absender, Anrede,
+  Grußformel und "Herr/Frau": **Namen, die nur im Anhangstext stehen, werden nicht maskiert.** IBAN, Telefon, Adressen,
+  Aktenzeichen, Links und lange Zahlen schon.
+- Textauszug: Word, Excel, PowerPoint und Text ohne Zusatzprogramme. PDF braucht `pdftotext` (Paket `poppler-utils`),
+  Bilder und gescannte Dokumente brauchen `tesseract` (mit `tesseract-langpack-deu`). Fehlt etwas, schreibt der Entwurf
+  nur "Anhang konnte nicht gelesen werden" in den Prompt und Claude tut nicht so, als kenne er den Inhalt.
 - Grenzen: Namen ohne Herr/Frau, Anrede, Signatur oder Absenderfeld und Firmennamen werden nicht maskiert.
 - `config.json` enthält den n8n-Token. Der Ordner liegt in OneDrive: Token bei Bedarf in n8n neu vergeben.
 - Entwürfe und Zustand liegen bewusst außerhalb von OneDrive in `%LOCALAPPDATA%\mail-app`.

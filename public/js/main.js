@@ -159,6 +159,7 @@ async function select(id, { keepView = true } = {}) {
       restore: () => quickRestore(id),
       snooze: (until) => perform('snooze', { id, until }, { message: 'Zurückgestellt' }),
       reload: () => select(id),
+      attachments: () => api.attachments(id),
       regenerate: async () => {
         try {
           await api.action('regenerate-draft', { id });

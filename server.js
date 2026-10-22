@@ -9,6 +9,7 @@ import { createVault } from './lib/vault.js';
 import { createRules } from './lib/rules.js';
 import { createMatcher } from './lib/matcher.js';
 import { createDrafts } from './lib/drafts.js';
+import { createAttachments } from './lib/attachments.js';
 import { createLearner } from './lib/learner.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
@@ -23,11 +24,16 @@ const vault = createVault({ dir: cfg.vault.dir, tasksFile: cfg.vault.tasksFile, 
 // Relativ = im App-Ordner (cfg.root), absolut = beliebiger Ort. Nicht im Vault.
 const rules = createRules({ file: path.resolve(cfg.root, cfg.rulesFile) });
 const matcher = createMatcher({ claude, vault, store });
-const drafts = createDrafts({ n8n, claude, rules, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize });
+const attachments = createAttachments({ n8n, tmpDir: path.join(cfg.dataDir, 'tmp') });
+const drafts = createDrafts({
+  n8n, claude, rules, store, attachments,
+  ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize,
+  readAttachments: cfg.attachments?.readByAi !== false,
+});
 const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames });
 const scheduler = createScheduler({ n8n, drafts, learner, store, poll: cfg.poll, log });
 
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude });
+const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments });
 const server = http.createServer(handler);
 server.listen(cfg.port, '127.0.0.1', () => {
   log(`Mail-App läuft auf http://localhost:${cfg.port}`);

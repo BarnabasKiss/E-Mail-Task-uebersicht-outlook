@@ -7,6 +7,40 @@ import { splitButton } from './menu.js';
 
 const MAX_CHIPS = 5;
 
+const formatSize = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/** Anhänge werden nachgeladen (eigener Aufruf an Outlook), die Ansicht wartet nicht darauf. */
+function createAttachmentsBox(proposalId, load) {
+  const box = el('section', { class: 'attachments', 'aria-label': 'Anhänge', hidden: true });
+  load()
+    .then(({ items, readByAi }) => {
+      if (!items.length) return;
+      box.replaceChildren(
+        icon('paperclip', 14),
+        el(
+          'div',
+          { class: 'att-list' },
+          items.map((a) => {
+            const href = `/api/proposals/${proposalId}/attachments/${encodeURIComponent(a.id)}`;
+            const hint = a.tooBig
+              ? 'Zu groß für die App (über 25 MB). In Outlook öffnen.'
+              : readByAi && a.readable
+                ? 'Der Text daraus wird anonymisiert an Claude gegeben, wenn ein Antwortentwurf entsteht.'
+                : 'Dieser Dateityp wird von Claude nicht gelesen.';
+            const body = [el('span', { class: 'att-name' }, a.name), el('span', { class: 'att-size' }, formatSize(a.size))];
+            if (readByAi && a.readable) body.push(el('span', { class: 'att-ai', title: hint }, icon('sparkle', 11)));
+            return a.tooBig
+              ? el('span', { class: 'att disabled', title: hint }, body)
+              : el('a', { class: 'att', href, target: '_blank', rel: 'noopener', title: `${a.name}\n${hint}` }, body);
+          }),
+        ),
+      );
+      box.hidden = false;
+    })
+    .catch(() => {}); // Anhänge sind eine Zugabe: ein Fehler stört die Mail nicht
+  return box;
+}
+
 function personChips(label, people, ownAddress) {
   if (!people.length) return null;
   const chips = people.map((p) => {
@@ -108,6 +142,8 @@ export function renderDetail(container, data, ctx) {
     personChips('Cc', mail.cc, ctx.ownAddress),
   );
 
+  const attachmentsBox = p.is_test ? null : createAttachmentsBox(p.id, handlers.attachments);
+
   // --- Zusammenfassung / Nachricht umschalten
   const summaryView = el(
     'div',
@@ -134,7 +170,7 @@ export function renderDetail(container, data, ctx) {
   const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), summaryView, messageView);
   setView(ctx.view === 'message' ? 'message' : 'summary');
 
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, message, taskRow?.node, draftPanel?.node));
+  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, message, taskRow?.node, draftPanel?.node));
   container.scrollTop = 0;
 
   return {

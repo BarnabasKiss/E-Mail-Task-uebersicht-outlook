@@ -272,3 +272,14 @@ button { cursor: pointer; }
   .status { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* Anhänge */
+.attachments { display: flex; gap: 8px; align-items: flex-start; padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); color: var(--muted); }
+.attachments > svg { flex: none; margin-top: 5px; }
+.att-list { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.att { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 26px; padding: 0 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); text-decoration: none; font-size: 12.5px; }
+a.att:hover { background: var(--hover); }
+.att.disabled { opacity: .55; cursor: not-allowed; }
+.att-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.att-size { color: var(--faint); white-space: nowrap; }
+.att-ai { display: inline-flex; color: var(--accent); }
