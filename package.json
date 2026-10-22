@@ -1,0 +1,11 @@
+{
+  "name": "mail-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokaler Mini-Mailclient: Vorschläge aus n8n, Aufgaben nach Obsidian, Antwortentwürfe über Claude",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}

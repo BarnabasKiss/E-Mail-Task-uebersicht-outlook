@@ -1,0 +1,10 @@
+# Geräte- und personenbezogen, gehört nicht ins Repo
+config.json
+Mail-Regeln.md
+
+# Laufzeit und Müll
+*.log
+*.tmp
+node_modules/
+.DS_Store
+Thumbs.db
