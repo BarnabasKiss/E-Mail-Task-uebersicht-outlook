@@ -709,3 +709,7 @@ a.att:hover { background: var(--hover); }
 /* Optionen-Menü in der Kopfzeile */
 #options-menu { min-width: 170px; }
 #options-menu .menu-item { justify-content: flex-start; align-items: center; gap: 10px; }
+.signature { display: grid; gap: 12px; align-content: start; }
+.signature .card { padding: 12px 14px; }
+.sg-text { width: 100%; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; line-height: 1.5; resize: vertical; }
+.sg-text:focus { outline: none; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px var(--accent-weak); }

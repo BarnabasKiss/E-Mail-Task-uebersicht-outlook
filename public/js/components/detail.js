@@ -47,7 +47,7 @@ export function renderDetail(container, data, ctx) {
         needsReply: p.antwort_noetig,
         suggest: handlers.suggest,
         reply: data.reply,
-        ownSignature: () => bodyView?.ownSignature() || '',
+        ownSignature: () => handlers.signatureOverride?.() ?? (bodyView?.ownSignature() || ''),
         onRegenerate: handlers.regenerate,
         onSendCheck: handlers.sendCheck,
         onOutlookDraft: handlers.outlookDraft,

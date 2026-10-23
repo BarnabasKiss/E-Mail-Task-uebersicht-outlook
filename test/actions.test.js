@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { actions } from '../actions/index.js';
+import { signatureInfo } from '../lib/signature-setting.js';
 import { createStore } from '../lib/store.js';
 import { createScheduler } from '../lib/scheduler.js';
 
@@ -307,4 +308,16 @@ test('Neue Mail: Verwerfen löscht nur App-Entwürfe', async () => {
   assert.deepEqual(s.sent.filter((c) => c[0] === 'deleteDraft'), [], 'fremde ID: nichts gelöscht');
   assert.deepEqual(await actions['compose-discard'].run(s.services, { draftId: d.draftId }), { deleted: true });
   assert.equal(s.sent.at(-1)[1], d.draftId);
+});
+
+test('Signatur: von Hand setzen gilt vor der erkannten, leer = keine, Zurücksetzen nimmt wieder die erkannte', async () => {
+  const s = setup();
+  s.store.set('settings', 'signature', 'Erkannt\nTel 1');
+  assert.deepEqual(signatureInfo(s.store), { signature: 'Erkannt\nTel 1', manual: null, detected: 'Erkannt\nTel 1' });
+  assert.equal((await actions.signature.run(s.services, { op: 'set', text: '  Mit Gruß  \r\nBarni  \n\n' })).signature, 'Mit Gruß\nBarni');
+  assert.equal(signatureInfo(s.store).detected, 'Erkannt\nTel 1', 'die erkannte bleibt daneben erhalten');
+  assert.equal((await actions.signature.run(s.services, { op: 'set', text: '' })).signature, '', 'leer = keine Signatur');
+  assert.equal((await actions.signature.run(s.services, { op: 'reset' })).signature, 'Erkannt\nTel 1');
+  await assert.rejects(actions.signature.run(s.services, { op: 'set', text: 'x'.repeat(2001) }), /zu lang/);
+  await assert.rejects(actions.signature.run(s.services, { op: 'zaubern' }), /Unbekannte/);
 });

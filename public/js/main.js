@@ -8,6 +8,7 @@ import { renderDetail, renderLoading, renderEmpty } from './components/detail.js
 import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
 import { renderRules } from './components/rules-view.js';
+import { renderSignature } from './components/signature-view.js';
 import { renderContacts } from './components/contacts-view.js';
 import { renderCompose } from './components/compose-view.js';
 import { renderOutbox } from './components/outbox-view.js';
@@ -22,7 +23,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, compose: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, sig: null, signatureManual: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -54,8 +55,8 @@ const attention = createAttentionSignal({ onOpen: (id) => showItem(id) });
 
 // Kopfzeile: welche Ansicht gerade offen ist (Neue Mail, Entwürfe, Kontakte, Lernen), gemerkt über aria-current
 function syncNav() {
-  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning, 'rules-link': !!state.rules };
-  open['options-link'] = open['contacts-link'] || open['learn-link'] || open['rules-link'];
+  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning, 'rules-link': !!state.rules, 'signature-link': !!state.sig };
+  open['options-link'] = open['contacts-link'] || open['learn-link'] || open['rules-link'] || open['signature-link'];
   for (const [id, on] of Object.entries(open)) {
     if (on) $(id).setAttribute('aria-current', 'page');
     else $(id).removeAttribute('aria-current');
@@ -130,7 +131,7 @@ async function loadList(fn = api.proposals) {
 
 function clearDetail() {
   stopLearnPolling();
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   state.selectedId = null;
   state.profile = null;
   state.controller = null;
@@ -306,7 +307,7 @@ async function openCompose(prefill = {}) {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   const info = await api.composeInfo().catch(() => ({ signature: '' }));
   const handle = { view: null };
   state.compose = handle;
@@ -390,7 +391,7 @@ function openOutbox() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.rules = null;
+  state.contacts = state.rules = state.sig = null;
   state.outbox = { note: '' };
   syncNav();
   showOutbox('');
@@ -408,7 +409,7 @@ async function select(id, { keepView = true } = {}) {
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
@@ -430,6 +431,7 @@ async function select(id, { keepView = true } = {}) {
   state.controller = renderDetail($('detail'), data, {
     view: state.view,
     ownAddress: state.ownAddress,
+    signatureOverride: () => state.signatureManual,
     onView: (v) => {
       state.view = v;
       syncHash();
@@ -504,7 +506,7 @@ async function refreshDraft(id) {
 async function openProfile(address) {
   if (!address || !leaveCompose()) return;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   stopLearnPolling();
   state.profile = String(address).toLowerCase();
   state.profileTab = 'mails';
@@ -588,7 +590,7 @@ async function showLearn() {
 function openLearn() {
   if (!leaveCompose()) return;
   state.profile = null;
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
@@ -651,14 +653,14 @@ function openContacts() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.rules = null;
+  state.rules = state.sig = null;
   state.contacts = { q: '', source: '', limit: 200, note: '' };
   syncNav();
   showContacts('');
 }
 
 function closeContacts() {
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.sig = null;
   if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
   else clearDetail();
 }
@@ -713,7 +715,7 @@ function openRules() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.sig = null;
   state.rules = { doc: null, text: false, note: '', reload: false };
   syncNav();
   showRules('');
@@ -725,12 +727,62 @@ function closeRules() {
   else clearDetail();
 }
 
+// --- Signatur (Optionen): Ansicht statt Detail. Von Hand eingestellt gilt sie bei Antworten und neuen Mails vor der erkannten.
+async function showSignature(note = state.sig?.note || '') {
+  const s = state.sig;
+  if (!s) return;
+  let info;
+  try {
+    info = await api.composeInfo();
+  } catch (e) {
+    toast(e.message, { error: true });
+    return closeSignature();
+  }
+  if (state.sig !== s) return; // inzwischen etwas anderes geöffnet
+  state.signatureManual = info.manual;
+  s.note = note;
+  const change = async (payload, text) => {
+    try {
+      const r = await api.action('signature', payload);
+      state.signatureManual = r.manual;
+      return showSignature(text);
+    } catch (e) {
+      toast(e.message, { error: true });
+    }
+  };
+  renderSignature($('detail'), info, {
+    back: closeSignature,
+    save: (text) => change({ op: 'set', text }, text.trim() ? 'Signatur gespeichert.' : 'Mails gehen jetzt ohne Signatur raus.'),
+    reset: () => change({ op: 'reset' }, 'Die Signatur wird wieder automatisch aus deiner letzten Nachricht erkannt.'),
+  }, note);
+}
+
+function openSignature() {
+  if (!leaveCompose()) return;
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
+  state.contacts = state.outbox = state.rules = null;
+  state.sig = { note: '' };
+  syncNav();
+  showSignature('');
+}
+
+function closeSignature() {
+  state.sig = null;
+  if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+  else clearDetail();
+}
+
 // --- Kopfzeile
 $('compose-link').addEventListener('click', () => openCompose());
 $('outbox-link').addEventListener('click', openOutbox);
 $('contacts-link').addEventListener('click', openContacts);
 $('learn-link').addEventListener('click', openLearn);
 $('rules-link').addEventListener('click', openRules);
+$('signature-link').addEventListener('click', openSignature);
 
 // Optionen: ein Menü für Kontakte, Lernen und Regeln
 {
@@ -779,6 +831,7 @@ if (hash.kontakt) {
   openProfile(hash.kontakt);
 } else if (first) select(first.id);
 else renderEmpty($('detail'), 'Keine offenen Mails. Neue erscheinen hier automatisch.');
+api.composeInfo().then((i) => (state.signatureManual = i.manual)).catch(() => {}); // eine von Hand eingestellte Signatur gilt auch bei Antworten
 renderLeft();
 statusBar.update();
 setInterval(() => loadList().then(statusBar.update).catch(statusBar.update), 30_000);

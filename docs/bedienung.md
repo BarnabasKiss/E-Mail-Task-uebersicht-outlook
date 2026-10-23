@@ -115,8 +115,13 @@ Eine Leiste unter dem Text jeder Antwort und jeder neuen Mail: **Diktieren | Ums
   **Entwürfe:** ein Klick öffnet den Entwurf zum Weiterschreiben, der Papierkorb löscht ihn.
 - Bei **Antworten** bleibt das, was du im Feld änderst, erhalten (auch nach dem Neuladen), ohne den erzeugten Entwurf zu überschreiben, damit das Lernen weiter beides vergleichen kann. „Neu erzeugen“ ersetzt deine Änderungen.
 
-## Optionen: Kontakte, Lernen, Regeln
-Das Menü **Optionen ▾** oben rechts fasst **Kontakte**, **Lernen** und **Regeln** zusammen. Der Eintrag der gerade offenen Ansicht ist hervorgehoben.
+## Optionen: Kontakte, Signatur, Lernen, Regeln
+Das Menü **Optionen ▾** oben rechts fasst **Kontakte**, **Signatur**, **Lernen** und **Regeln** zusammen. Der Eintrag der gerade offenen Ansicht ist hervorgehoben.
+
+## Signatur
+**Optionen → Signatur** ist der Text, der bei Antworten und neuen Mails unter deinen Text gesetzt wird (mit dem Haken „Meine Signatur anhängen“ pro Mail abwählbar).
+- **Speichern** macht ihn zu deiner festen Signatur; sie gilt vor allem anderen. **Keine Signatur** sendet Mails ohne. **Automatisch erkennen** nimmt wieder die Signatur aus deiner letzten Nachricht im Verlauf (so war es bisher, sie dient auch als Vorlage im Feld).
+- Die Signatur liegt nur in der App (`state.json`), nichts davon wird in Outlook gespeichert. Sie wird beim Senden mit in den Text der Mail geschrieben.
 
 ## Regeln: die Regeldatei in der App
 **Optionen → Regeln** zeigt `Mail-Regeln.md` als Liste, je Abschnitt eine Karte (Grundton, Regeln pro Kontakt, Dringlichkeit, Gelerntes, aus gesendeten Mails abgeleitet).

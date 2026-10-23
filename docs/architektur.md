@@ -59,6 +59,7 @@ lib/
     address-job.js      Hintergrundjob: Absender und Empfänger der Mails ins Adressbuch
     thread.js           Verlauf einer Konversation (n8n getThread), je Nachricht ohne Zitat und mit getrennter Signatur
     signature.js        Signaturerkennung (Trennzeile, gemeinsames Ende, Grußformel + Kontaktblock)
+    signature-setting.js  wirksame Signatur: von Hand eingestellt (Optionen → Signatur) vor der erkannten
   Gedächtnis und Lernen
     contacts.js         Absender-Gedächtnis je Person und Firma (Du/Sie, Anrede, Gruß, Sprache, Notizen)
     style-extract.js    Stilmerkmale aus einem Text erkennen (ohne KI), Anrede/Gruß in Entwürfe einsetzen
@@ -80,7 +81,7 @@ public/                 Oberfläche
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
                         mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
                         send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail), outbox-view (Entwürfe, Geplantes),
-                        improve-bar (Werkzeugleiste mit Versionsliste), rules-view (Regeldatei bearbeiten), tool-menu (Aufklappliste), send-warn (Warnungen vor dem Senden),
+                        improve-bar (Werkzeugleiste mit Versionsliste), rules-view (Regeldatei bearbeiten), signature-view (Signatur bearbeiten), tool-menu (Aufklappliste), send-warn (Warnungen vor dem Senden),
                         dictation (Spracheingabe), schedule-menu (Senden planen);
                         recorder.js, recorder-logic.js (Mikrofonaufnahme, Schnitt an Sprechpausen),                         countdown.js (30 Sekunden vor dem Senden), dictation-text.js (Sprachbefehle)
 tools/stt-worker.py      Python-Worker der Spracherkennung (faster-whisper), Zeilenprotokoll über stdin/stdout
@@ -119,7 +120,7 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
 | `GET /outbox` | App-Entwürfe, geplante Mails und Zähler |
 | `GET /speech`, `POST /transcribe` | Stand der lokalen Spracherkennung; Audio (rohe Bytes, Header `x-mail-app: 1`) in Text umsetzen |
-| `GET /compose-info` | gemerkte Signatur für neue Mails |
+| `GET /compose-info` | wirksame, von Hand eingestellte und erkannte Signatur; ändern: Aktion `signature` (`set`, `reset`) |
 | `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |
 | `GET /address-book?q=&source=&limit=` | Liste und Zahlen für die Kontaktverwaltung (ändern: Aktion `book`) |
 | `GET /contacts/:adresse` | Absender-Profil: Zahlen, Regeln, Gedächtnis (Änderungen: Aktion `contact`) |

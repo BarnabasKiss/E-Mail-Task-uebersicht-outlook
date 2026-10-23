@@ -28,6 +28,8 @@ const outboxData = {
 let outboxCall = null;
 let rulesList = ['Anrede kurz und österreichisch.', 'Keine Signatur schreiben.'];
 let rulesCall = null;
+let sigManual = null;
+let sigCall = null;
 const rulesDoc = () => ({ file: '/x/Mail-Regeln.md', version: 'v1', text: '# Regeln', title: 'Regeln', intro: ['Diese Datei steuert die App.'], sections: [{ heading: 'Grundton', level: 2, hints: ['Stil für Entwürfe.'], rules: rulesList.map((text, index) => ({ index, text })) }, { heading: 'Gelernt', level: 2, hints: [], rules: [] }] });
 let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
 let bookCall = null;
@@ -66,7 +68,13 @@ globalThis.fetch = async (url, init = {}) => {
     return json({ proposal: it, mail: { source: 'outlook', subject: it.betreff, from: { name: it.absender, address: it.absender_mail }, to: [], cc: [], receivedDateTime: it.received_at, text: `Text von ${it.betreff}` }, mailError: null, draft: null, headings: [] });
   }
   if (p === '/api/history-learn') return json(learnStatus);
-  if (p === '/api/compose-info') return json({ signature: 'Barni Kiss', ownAddress: 'barni@firma.at' });
+  if (p === '/api/compose-info') return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss', ownAddress: 'barni@firma.at' });
+  if (p === '/api/actions/signature') {
+    const b = JSON.parse(init.body);
+    sigCall = b;
+    sigManual = b.op === 'set' ? b.text.trim() : null;
+    return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss' });
+  }
   if (p === '/api/address-book') return json({ total: book.length, items: book.filter((b) => !u.searchParams.get('q') || b.name.toLowerCase().includes(u.searchParams.get('q'))), stats: { total: book.length, mail: 1, manuell: book.length - 1 } });
   m = /^\/api\/contacts\/(.+)$/.exec(p);
   if (m) {
@@ -500,11 +508,11 @@ test('Kopfzeile: Symbole an den Knöpfen und Zähler am Knopf "Entwürfe" (rot b
   assert.ok(badge.classList.contains('bad'), 'ein geplanter Versand ist fehlgeschlagen');
 });
 
-test('Optionen: ein Menü mit Kontakte, Lernen und Regeln; die offene Ansicht markiert Menü und Eintrag', opts, async () => {
+test('Optionen: ein Menü mit Kontakte, Signatur, Lernen und Regeln; die offene Ansicht markiert Menü und Eintrag', opts, async () => {
   assert.equal($('options-menu').hidden, true);
   $('options-link').click();
   assert.equal($('options-menu').hidden, false);
-  assert.deepEqual([...$('options-menu').querySelectorAll('.menu-item')].map((b) => b.textContent.trim()), ['Kontakte', 'Lernen', 'Regeln']);
+  assert.deepEqual([...$('options-menu').querySelectorAll('.menu-item')].map((b) => b.textContent.trim()), ['Kontakte', 'Signatur', 'Lernen', 'Regeln']);
   $('rules-link').click();
   await tick(80);
   assert.equal($('options-menu').hidden, true, 'schließt nach der Wahl');
@@ -514,7 +522,33 @@ test('Optionen: ein Menü mit Kontakte, Lernen und Regeln; die offene Ansicht ma
   assert.deepEqual([...document.querySelectorAll('#detail .rl-section h3')].map((h) => h.firstChild.textContent), ['Grundton', 'Gelernt']);
 });
 
+test('Signatur: von Hand speichern, "Keine Signatur", zurück zur automatischen Erkennung', opts, async () => {
+  $('signature-link').click();
+  await tick(80);
+  const area = () => document.querySelector('#detail .sg-text');
+  assert.equal(area().value, 'Barni Kiss', 'ohne Einstellung die erkannte Signatur');
+  assert.equal($('options-link').getAttribute('aria-current'), 'page');
+  area().value = 'Mit Gruß\nBarni';
+  [...document.querySelectorAll('#detail .btn')].find((b) => b.textContent.includes('Speichern')).click();
+  await tick(80);
+  assert.deepEqual(sigCall, { op: 'set', text: 'Mit Gruß\nBarni' });
+  assert.match(document.querySelector('#detail .badge.ok').textContent, /Von Hand/);
+  [...document.querySelectorAll('#detail .btn')].find((b) => b.textContent.includes('Keine Signatur')).click();
+  await tick(80);
+  assert.deepEqual(sigCall, { op: 'set', text: '' });
+  assert.match(document.querySelector('#detail .badge').textContent, /Keine Signatur/);
+  [...document.querySelectorAll('#detail .btn')].find((b) => b.textContent.includes('Automatisch erkennen')).click();
+  await tick(80);
+  assert.equal(sigCall.op, 'reset');
+  assert.equal(area().value, 'Barni Kiss');
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
+  assert.equal($('signature-link').getAttribute('aria-current'), null);
+});
+
 test('Regeln bearbeiten: ändern, hinzufügen, löschen; ein Konflikt lädt neu; ganze Datei als Text', opts, async () => {
+  $('rules-link').click();
+  await tick(80);
   const area = () => document.querySelectorAll('#detail .rl-text');
   assert.equal(area().length, 2);
   area()[0].value = 'Anrede locker.';
@@ -551,7 +585,7 @@ test('Entwürfe und Geplantes: Liste, Entwurf öffnen, löschen, Planung abbrech
   $('outbox-link').click();
   await tick(80);
   assert.equal(document.querySelector('#detail .outbox h2').textContent, 'Entwürfe und Geplantes');
-  const current = () => ['compose-link', 'outbox-link', 'contacts-link', 'learn-link', 'rules-link', 'options-link'].filter((id) => $(id).getAttribute('aria-current') === 'page');
+  const current = () => ['compose-link', 'outbox-link', 'contacts-link', 'learn-link', 'rules-link', 'signature-link', 'options-link'].filter((id) => $(id).getAttribute('aria-current') === 'page');
   assert.deepEqual(current(), ['outbox-link'], 'die offene Ansicht ist in der Kopfzeile markiert');
   const rows = [...document.querySelectorAll('#detail .ob-row')];
   assert.equal(rows.length, 3);
