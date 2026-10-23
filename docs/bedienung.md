@@ -51,6 +51,7 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
   so groß, dass du alles ohne Scrollen siehst; ein zweiter Klick macht ihn wieder so klein wie vorher. Das **Auge** in der Kopfzeile der Sektion (nur bei aufgeklapptem Verlauf) schaltet zwischen *Original* und
   *Anonymisiert* um: anonymisiert ersetzt es den Verlauf durch die geöffnete Mail so, wie Claude sie bekäme, mit markierten Platzhaltern, der Zuordnung als Dropdown, dem Text
   aus Bildern und Anhängen und dem Ergebnis der Prüfung (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
+  Bilder in der Mail stehen im Verlauf als kleine **Marken mit Dateinamen** (sonst „Bild 1“): Darüberfahren zeigt eine Vorschau, Linksklick öffnet das Bild in voller Größe.
 - **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**. Sie steht über der Zusammenfassung.
   Die Mail bleibt danach in „Offen“; die Zeile zeigt „✓ Aufgabe übernommen“ mit „Weitere Aufgabe“.
 - **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Aufbau: oben der **Hinweis** (Freitext für diese Antwort, z. B. „sag, dass ich nächste Woche Zeit habe“; Enter erzeugt sofort neu), darunter der Text, darunter die [Werkzeugleiste](#werkzeuge-für-den-text).

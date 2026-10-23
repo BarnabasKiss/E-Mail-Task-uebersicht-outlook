@@ -1,5 +1,6 @@
 // Bausteine für die Darstellung des Mailtexts: Bilder an ihrer Stelle im Text, Platzhalter-Markierung, Textkasten mit Größenanpassung.
 import { el } from '../util.js';
+import { icon } from '../icons.js';
 
 const IMAGE_MARK = /⟦bild:([^⟧]*)⟧/g; // Marke, die der Server für ein eingebettetes Bild in den Text setzt
 
@@ -13,9 +14,8 @@ function placeTip(tip, x, y) {
   tip.style.top = `${top}px`;
 }
 
-/** Bild mit OCR-Kennzeichnung, dessen Tooltip beim Darüberfahren (und per Tastatur-Fokus) erscheint. */
-function imageWithTip(link, tipNode) {
-  const wrap = el('span', { class: 'mail-img-wrap', tabindex: '0' }, link, el('span', { class: 'ocr-badge' }, 'OCR'));
+/** Hängt einen Tooltip an ein Element: erscheint beim Darüberfahren (folgt dem Mauszeiger) und bei Tastatur-Fokus. */
+function hoverTip(wrap, tipNode) {
   const open = (x, y) => {
     document.body.append(tipNode);
     tipNode.classList.add('on');
@@ -32,11 +32,31 @@ function imageWithTip(link, tipNode) {
   return wrap;
 }
 
+/** Bild mit OCR-Kennzeichnung, dessen Tooltip beim Darüberfahren (und per Tastatur-Fokus) erscheint. */
+function imageWithTip(link, tipNode) {
+  return hoverTip(el('span', { class: 'mail-img-wrap', tabindex: '0' }, link, el('span', { class: 'ocr-badge' }, 'OCR')), tipNode);
+}
+
+// Dateiname aus der Bild-ID ("image001.png@01DC…" -> "image001.png"); ohne erkennbaren Namen "Bild n"
+const imageName = (id, n) => {
+  const name = decodeURIComponent(String(id)).split('@')[0];
+  return /^[^/\\]{1,60}\.[a-z0-9]{2,5}$/i.test(name) ? name : `Bild ${n}`;
+};
+
+/** Bild als kleine Marke mit Namen: Darüberfahren zeigt eine Vorschau, Linksklick öffnet das Bild in voller Größe. */
+function imageChip(src, label) {
+  const link = el('a', { class: 'img-chip', href: src, target: '_blank', rel: 'noopener', title: 'Linksklick öffnet das Bild' }, icon('paperclip', 12), el('span', {}, label));
+  const pop = el('div', { class: 'img-pop', role: 'tooltip' }, el('img', { src, alt: label }), el('span', {}, label));
+  return hoverTip(link, pop);
+}
+
 /**
  * Mailtext mit den Bildern aus der Mail an ihrer Stelle (Marken ⟦bild:<Wert>⟧).
  * resolve: Marke -> Anhang-ID; tip: Anhang-ID -> Tooltip-Knoten oder null; plain: Textstück -> Knoten (z. B. mit Platzhalter-Markierung).
+ * chips: Bilder als kleine Marken mit Namen statt in voller Größe (Vorschau beim Darüberfahren, Klick öffnet).
  */
-export function textWithImages(proposalId, text, { resolve = (v) => v, tip, plain = (t) => t } = {}) {
+export function textWithImages(proposalId, text, { resolve = (v) => v, tip, plain = (t) => t, chips = false } = {}) {
+  let count = 0;
   const parts = [];
   let last = 0;
   // Das Bild ist ein Block: die Zeilenumbrüche um die Marke würden sonst als Leerzeilen dazukommen.
@@ -44,6 +64,12 @@ export function textWithImages(proposalId, text, { resolve = (v) => v, tip, plai
     parts.push(plain(text.slice(last, m.index).replace(last ? /^\n|\n$/g : /\n$/, '')));
     const id = resolve(m[1]);
     const src = `/api/proposals/${proposalId}/attachments/${encodeURIComponent(id)}`;
+    count += 1;
+    if (chips) {
+      parts.push(imageChip(src, imageName(id, count)));
+      last = m.index + m[0].length;
+      continue;
+    }
     const link = el('a', { class: 'mail-img', href: src, target: '_blank', rel: 'noopener', title: tip ? null : 'Bild in voller Größe öffnen' }, el('img', { src, alt: 'Bild in der Mail', loading: 'lazy' }));
     const tipNode = tip ? tip(id) : null;
     parts.push(tipNode ? imageWithTip(link, tipNode) : link);

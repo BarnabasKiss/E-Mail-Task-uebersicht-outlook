@@ -41,7 +41,7 @@ function popover(m, ownAddress) {
 /** m: Nachricht vom Server. Die geöffnete Mail zeigt ihre Bilder an der richtigen Stelle. */
 function bubble(m, { proposalId, ownAddress }) {
   const who = m.own ? 'Du' : m.from.name || m.from.address;
-  const body = m.current && /⟦bild:/.test(m.text) ? textWithImages(proposalId, m.text) : [m.text || '(kein Text)'];
+  const body = m.current && /⟦bild:/.test(m.text) ? textWithImages(proposalId, m.text, { chips: true }) : [m.text || '(kein Text)'];
   const row = el(
     'article',
     { class: `bubble-row${m.own ? ' own' : ''}`, 'data-id': m.id },

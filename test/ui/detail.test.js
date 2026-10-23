@@ -246,6 +246,22 @@ const page1 = {
   degraded: false,
 };
 
+test('Verlauf: Bilder der geöffneten Mail erscheinen als Marken mit Namen; Vorschau beim Darüberfahren, Klick öffnet das Bild', opts, async () => {
+  const withImages = { ...page1, messages: page1.messages.map((m) => (m.current ? { ...m, text: 'Siehe\n⟦bild:image001.png@01DC.1⟧\ndanach\n⟦bild:abc123⟧\nDanke' } : m)) };
+  const { box } = await render({}, { view: 'message', extra: { thread: async () => withImages } });
+  await tick(30);
+  const chips = [...box.querySelectorAll('.bubble.current .img-chip')];
+  assert.deepEqual(chips.map((c) => c.textContent.trim()), ['image001.png', 'Bild 2'], 'Dateiname, sonst "Bild n"');
+  assert.equal(box.querySelector('.bubble.current img:not(.img-pop img)'), null, 'kein großes Bild im Verlauf');
+  assert.match(chips[0].getAttribute('href'), /\/attachments\/image001\.png%4001DC\.1$/);
+  assert.equal(chips[0].target, '_blank');
+  assert.equal(document.querySelector('.img-pop'), null, 'Vorschau erst beim Darüberfahren');
+  chips[0].dispatchEvent(new w.MouseEvent('mouseenter', { clientX: 10, clientY: 10 }));
+  assert.ok(document.querySelector('.img-pop.on img'), 'Vorschau sichtbar');
+  chips[0].dispatchEvent(new w.MouseEvent('mouseleave'));
+  assert.equal(document.querySelector('.img-pop'), null, 'weg beim Verlassen');
+});
+
 test('Verlauf: Nachrichten alt nach neu, eigene rechts, andere links in ihrer Farbe, kompakte Kopfzeile, Signatur als Dropdown', opts, async () => {
   const { box } = await render({}, { view: 'message', extra: { thread: async () => page1 } });
   await tick(30);
