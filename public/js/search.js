@@ -42,7 +42,7 @@ export function localDay(iso) {
 
 // Dokumentinhalt, Dokumentnamen und Mailtext durchsucht der Server (der volle Text liegt nicht in der Liste)
 export const docScopeOn = (f) => f.scope.content || f.scope.names || f.scope.text;
-export const scopesAllOn = (f) => SCOPES.every(([k]) => f.scope[k]);
+const scopesAllOn = (f) => SCOPES.every(([k]) => f.scope[k]);
 
 /** Erfüllt die Mail alle gesetzten Filter? (Der Suchtext ist getrennt: matchesText.) */
 export function matchesFilters(m, f) {
@@ -95,7 +95,6 @@ export function filterCount(f) {
   // "Mit Anhang" gehört zum Format-Filter, wenn eines gewählt ist: ein Filter, nicht zwei
   return SIMPLE.filter((k) => f[k]).length + FLAGS.filter((k) => f[k] && !(k === 'anhang' && f.format)).length + (f.rollen.length ? 1 : 0) + (scopesAllOn(f) ? 0 : 1);
 }
-export const filtersActive = (f) => filterCount(f) > 0;
 /** Filter ohne die Bereiche: nur sie erlauben eine Suche ohne Suchtext. */
 export const hasRealFilter = (f) => filterCount({ ...f, scope: defaultFilters().scope }) > 0;
 

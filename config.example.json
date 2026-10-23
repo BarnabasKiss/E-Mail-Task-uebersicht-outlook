@@ -2,6 +2,7 @@
   "port": 4711,
   "dataDir": "%LOCALAPPDATA%\\mail-app",
   "ownAddress": "vorname.nachname@firma.at",
+  "ownAliases": [],
   "ownNames": ["vorname", "nachname"],
   "pseudonymize": true,
   "n8n": {
@@ -10,7 +11,7 @@
     "timeoutMs": 60000
   },
   "rulesFile": "Mail-Regeln.md",
-  "attachments": { "readByAi": true, "ocrInline": true, "review": { "enabled": false, "maxPerRun": 3, "logPrompts": true } },
+  "attachments": { "readByAi": true, "ocrInline": true, "searchDocs": true, "review": { "enabled": false, "maxPerRun": 3, "logPrompts": true } },
   "vault": {
     "dir": "C:\\Users\\DEIN-NAME\\Obsidian Vault\\...\\0 Faircheck",
     "tasksFile": "📋 3 Aufgaben.md"

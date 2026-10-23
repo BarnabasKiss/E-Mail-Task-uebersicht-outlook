@@ -1,3 +1,4 @@
+// Das Filter-Panel der erweiterten Suche (Logik der Filter: search.js, Steuerung: search-controller.js).
 import { el } from '../util.js';
 import { icon } from '../icons.js';
 import { SCOPES, ROLLEN, defaultFilters, filterChips, clearChip, filterCount, localDay } from '../search.js';

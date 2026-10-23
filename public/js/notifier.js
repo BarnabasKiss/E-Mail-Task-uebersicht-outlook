@@ -1,3 +1,4 @@
+// Systembenachrichtigungen (Notification-API) für neue wichtige Mails und das Merken, was schon gemeldet wurde.
 import { whyImportant } from './attention.js';
 
 const KEY = 'mailapp.importantSeen';

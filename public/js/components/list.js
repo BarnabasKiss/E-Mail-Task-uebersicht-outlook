@@ -1,4 +1,5 @@
-import { el, avatar, formatShort, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
+// Die Mailliste links: Reiter, Gruppen (Jetzt, Überfällig, Heute, Diese Woche), Zeilen mit ihren Tags und die Trefferzeilen der Suche.
+import { el, avatar, badge, formatShort, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { formatOf } from '../search.js';
 
@@ -35,10 +36,6 @@ export function renderTabs(container, items, activeTab, searching, onSelect) {
       );
     }),
   );
-}
-
-function badge(text, cls = '', iconName) {
-  return el('span', { class: `badge ${cls}` }, iconName && icon(iconName, 12), text);
 }
 
 // Nur ein Symbol mit Tooltip (statt Textmarke): spart Platz in der Liste.

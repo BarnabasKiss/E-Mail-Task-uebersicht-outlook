@@ -1,117 +1,15 @@
-import { el, avatar, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
+// Die Detailansicht rechts: Kopf mit Aktionen, Absender und Empfänger, Anhänge, Zusammenfassung/Nachricht, Aufgabe und Antwortentwurf.
+// Der Mailtext selbst steht in mail-body.js, die Anhangsleiste in attachments-box.js.
+import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { createTaskRow } from './task-row.js';
 import { createDraftPanel } from './draft-panel.js';
 import { createSnoozeMenu } from './snooze-menu.js';
 import { splitButton } from './menu.js';
+import { createAttachmentsBox } from './attachments-box.js';
+import { createMailBody } from './mail-body.js';
 
 const MAX_CHIPS = 5;
-
-const formatSize = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
-
-/** Anhänge werden nachgeladen (eigener Aufruf an Outlook), die Ansicht wartet nicht darauf. */
-function createAttachmentsBox(proposalId, load) {
-  const box = el('section', { class: 'attachments', 'aria-label': 'Anhänge', hidden: true });
-  load()
-    .then(({ items, readByAi, canPreview }) => {
-      if (!items.length) return;
-      box.replaceChildren(
-        icon('paperclip', 14),
-        el(
-          'div',
-          { class: 'att-list' },
-          items.map((a) => {
-            const href = `/api/proposals/${proposalId}/attachments/${encodeURIComponent(a.id)}`;
-            const hint = a.tooBig
-              ? 'Zu groß für die App (über 25 MB). In Outlook öffnen.'
-              : readByAi && a.readable
-                ? 'Der Text daraus wird anonymisiert an Claude gegeben, wenn ein Antwortentwurf entsteht.'
-                : 'Dieser Dateityp wird von Claude nicht gelesen.';
-            const body = [el('span', { class: 'att-name' }, a.name), el('span', { class: 'att-size' }, formatSize(a.size))];
-            if (readByAi && a.readable) body.push(el('span', { class: 'att-ai', title: hint }, icon('sparkle', 11)));
-            if (a.tooBig) return el('span', { class: 'att disabled', title: hint }, body);
-            return el(
-              'span',
-              { class: 'att-wrap' },
-              el('a', { class: 'att', href, target: '_blank', rel: 'noopener', title: `${a.name}\nIm Browser öffnen\n${hint}` }, body),
-              el('a', { class: 'att-dl', href: `${href}?download=1`, download: a.name, title: `${a.name} herunterladen`, 'aria-label': `${a.name} herunterladen` }, icon('download', 14)),
-            );
-          }),
-          canPreview && el('a', { class: 'link att-preview', href: `/api/proposals/${proposalId}/attachments/review-preview`, target: '_blank', rel: 'noopener', title: 'Zeigt den anonymisierten Text, der an Claude gehen würde (wird dabei nicht gesendet).' }, 'Was geht an Claude?'),
-        ),
-      );
-      box.hidden = false;
-    })
-    .catch(() => {}); // Anhänge sind eine Zugabe: ein Fehler stört die Mail nicht
-  return box;
-}
-
-const IMAGE_MARK = /⟦bild:([^⟧]*)⟧/g;
-
-// Tooltip hängt direkt an der Seite (nicht im scrollbaren Mailtext) und folgt dem Mauszeiger.
-function placeTip(tip, x, y) {
-  const w = tip.offsetWidth;
-  const h = tip.offsetHeight;
-  const left = x + 16 + w > window.innerWidth - 8 ? Math.max(8, x - w - 16) : x + 16;
-  const top = y + 20 + h > window.innerHeight - 8 ? Math.max(8, y - h - 12) : y + 20;
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-}
-
-/**
- * Mailtext mit den Bildern aus der Mail an ihrer Stelle (Marken ⟦bild:<Wert>⟧).
- * resolve: Marke -> Anhang-ID, tip: Anhang-ID -> Tooltip-Knoten oder null, text: Textstück -> Knoten (z. B. mit Platzhalter-Markierung).
- */
-function textWithImages(proposalId, text, { resolve = (v) => v, tip, plain = (t) => t } = {}) {
-  const parts = [];
-  let last = 0;
-  // Das Bild ist ein Block: die Zeilenumbrüche um die Marke würden sonst als Leerzeilen dazukommen.
-  for (const m of text.matchAll(IMAGE_MARK)) {
-    parts.push(plain(text.slice(last, m.index).replace(last ? /^\n|\n$/g : /\n$/, '')));
-    const id = resolve(m[1]);
-    const src = `/api/proposals/${proposalId}/attachments/${encodeURIComponent(id)}`;
-    const link = el('a', { class: 'mail-img', href: src, target: '_blank', rel: 'noopener', title: tip ? null : 'Bild in voller Größe öffnen' }, el('img', { src, alt: 'Bild in der Mail', loading: 'lazy' }));
-    const tipNode = tip ? tip(id) : null;
-    if (tipNode) {
-      const wrap = el('span', { class: 'mail-img-wrap', tabindex: '0' }, link, el('span', { class: 'ocr-badge' }, 'OCR'));
-      const open = (x, y) => {
-        document.body.append(tipNode);
-        tipNode.classList.add('on');
-        placeTip(tipNode, x, y);
-      };
-      wrap.addEventListener('mouseenter', (e) => open(e.clientX, e.clientY));
-      wrap.addEventListener('mousemove', (e) => placeTip(tipNode, e.clientX, e.clientY));
-      wrap.addEventListener('mouseleave', () => tipNode.remove());
-      wrap.addEventListener('focus', () => {
-        const r = wrap.getBoundingClientRect();
-        open(r.left, r.top + 8);
-      });
-      wrap.addEventListener('blur', () => tipNode.remove());
-      parts.push(wrap);
-    } else {
-      parts.push(link);
-    }
-    last = m.index + m[0].length;
-  }
-  parts.push(plain(last ? text.slice(last).replace(/^\n/, '') : text));
-  return parts.flat().filter((x) => x !== '');
-}
-
-/** Textkasten, der sich bis 320 px dem Inhalt anpasst und per Ziehen (unten rechts) in der Höhe veränderbar ist. */
-function autosize(box) {
-  let userSized = false;
-  const fit = () => {
-    if (userSized || !box.isConnected) return;
-    box.style.height = 'auto';
-    box.style.height = `${Math.min(box.scrollHeight + 2, 320)}px`;
-  };
-  box.addEventListener('pointerdown', (e) => {
-    const r = box.getBoundingClientRect();
-    if (e.clientX > r.right - 22 && e.clientY > r.bottom - 22) userSized = true; // Ziehgriff
-  });
-  box.addEventListener('load', fit, true); // Bilder laden nach
-  return fit;
-}
 
 function personChips(label, people, ownAddress) {
   if (!people.length) return null;
@@ -125,10 +23,6 @@ function personChips(label, people, ownAddress) {
     : null;
   rest.forEach((c) => (c.hidden = true));
   return el('div', { class: 'people-line' }, el('span', { class: 'people-label' }, label), el('div', { class: 'people' }, chips, more));
-}
-
-function badge(text, cls = '', iconName) {
-  return el('span', { class: `badge ${cls}` }, iconName && icon(iconName, 12), text);
 }
 
 /**
@@ -232,123 +126,19 @@ export function renderDetail(container, data, ctx) {
       el('button', { class: 'link', type: 'button', onclick: handlers.revertReview }, 'Zurücksetzen'),
     ),
   );
-  // Auge: "Original" = Mail mit Bildern und der Text, den die OCR daraus liest. "Anonymisiert" = genau das, was Claude bekäme
-  // (Mailtext, Text aus Bildern und Anhängen, mit markierten Platzhaltern, Zuordnung und Ergebnis der Prüfung).
-  // Der Text aus Bildern und Anhängen kommt nachgeladen (die OCR kann dauern), die Mail erscheint sofort.
-  let ai = null; // Antwort von /ai-view, sobald da
-  const sendable = () => (ai && ai.text != null ? ai : mail.masked); // { text, map }
-  const original = () => (mail.imageText ? textWithImages(p.id, mail.imageText) : mail.text || '(kein Text)');
-  const maskedNodes = (text, map) => {
-    const parts = [];
-    let last = 0;
-    for (const m of text.matchAll(/\[[A-ZÄÖÜ]+_\d+\]/g)) {
-      parts.push(text.slice(last, m.index));
-      parts.push(el('mark', { class: 'mask', title: `Original: ${map[m[0]] ?? '?'}` }, m[0]));
-      last = m.index + m[0].length;
-    }
-    parts.push(text.slice(last));
-    return parts.filter((x) => x !== '');
-  };
-  // Anonymisiert: die Bilder bleiben an ihrer Stelle, der Tooltip zeigt den maskierten Text, den Claude daraus bekommt.
-  const maskedView = (src) => {
-    if (!(ai && ai.text != null && ai.imageIds?.length)) return maskedNodes(src.text, src.map);
-    const tip = (id) => {
-      const it = ai.items.find((x) => x.attId === id);
-      return el('span', { class: 'ai-tip', role: 'tooltip' }, el('span', { class: 'ai-tip-title' }, it ? 'So bekommt Claude den Text aus diesem Bild' : 'Aus diesem Bild geht nichts an Claude'), it ? el('span', { class: 'ai-tip-text' }, ...maskedNodes(it.masked, ai.map)) : el('span', { class: 'ai-tip-text' }, 'Kein Text erkannt oder das Bild ist zu klein. Claude sieht nie das Bild selbst.'));
-    };
-    return textWithImages(p.id, src.text, { resolve: (n) => ai.imageIds[Number(n) - 1], tip, plain: (t) => maskedNodes(t, src.map) });
-  };
-  const mailText = el('pre', { class: 'mailtext' }, original());
-  const fitMailText = autosize(mailText);
-  const legend = el('details', { class: 'mask-legend', hidden: true }); // Dropdown, standardmäßig zu
-  const aiBox = el('section', { class: 'ai-items', 'aria-label': 'Anhänge und Prüfung', hidden: true });
-  let showMasked = false;
-  const eye = mail.masked && mail.text
-    ? el('button', { class: 'eye-btn', type: 'button', 'aria-pressed': 'false', onclick: () => setMasked(!showMasked) })
-    : null;
-
-  // Nur in der anonymisierten Ansicht: Text aus Anhängen (Bilder stehen im Text) und das Ergebnis der Prüfung.
-  function renderAiBox() {
-    const items = (ai?.items || []).filter((it) => !it.attId && it.masked != null);
-    aiBox.hidden = !showMasked || !ai || (ai.text == null && !ai.error);
-    if (aiBox.hidden) return;
-    const map = ai.map || {};
-    const check = ai.problems.length
-      ? el('p', { class: 'ai-check bad' }, icon('alert', 14), el('span', {}, `Prüfung: Würde NICHT an Claude gesendet. ${ai.problems.join('; ')}.`))
-      : el('p', { class: 'ai-check ok' }, icon('check', 14), el('span', {}, 'Prüfung bestanden: keine erkannten Namen oder Kennungen mehr im Text.'));
-    const fits = [];
-    const nodes = [
-      ai.error && el('p', { class: 'hint' }, ai.error),
-      items.length && el('div', { class: 'ai-title' }, icon('sparkle', 13), el('span', {}, 'Text aus Anhängen, so bekommt ihn Claude')),
-      ...items.map((it) => el('div', { class: 'ai-item' }, el('div', { class: 'ai-name' }, it.maskedName), (() => { const box = el('pre', { class: 'mailtext' }, ...maskedNodes(it.masked, map)); fits.push(autosize(box)); return box; })())),
-      check,
-    ];
-    aiBox.replaceChildren(...nodes.filter(Boolean));
-    requestAnimationFrame(() => fits.forEach((f) => f()));
-  }
-
-  function setMasked(on) {
-    showMasked = on;
-    const src = sendable();
-    const entries = Object.entries(src.map);
-    if (on) {
-      mailText.replaceChildren(...maskedView(src));
-      legend.replaceChildren(
-        el('summary', { class: 'mask-title' }, entries.length ? `${entries.length} Angaben ersetzt` : 'Nichts ersetzt'),
-        ...entries.map(([ph, v]) => el('div', { class: 'mask-row' }, el('mark', { class: 'mask' }, ph), el('span', { class: 'mask-arrow' }, '←'), el('span', {}, v))),
-      );
-    } else {
-      mailText.replaceChildren(...[original()].flat());
-    }
-    legend.hidden = !on || !entries.length;
-    eye.setAttribute('aria-pressed', String(on));
-    eye.title = on ? 'Zeigt, was an Claude geht: anonymisierter Mailtext samt Text aus Bildern und Anhängen. Klicken für das Original.' : 'Original mit dem Text, den die OCR aus den Bildern liest. Klicken, um zu sehen, was anonymisiert wird.';
-    eye.replaceChildren(icon(on ? 'eyeOff' : 'eye', 16), el('span', {}, on ? 'Anonymisiert' : 'Original'));
-    renderAiBox();
-    requestAnimationFrame(fitMailText);
-  }
-  if (eye) setMasked(false);
-
-  let aiRequested = false;
-  function loadAi() {
-    if (aiRequested || !handlers.aiView) return;
-    aiRequested = true;
-    handlers
-      .aiView()
-      .then((r) => {
-        ai = r;
-        if (eye) setMasked(showMasked);
-        else renderAiBox();
-      })
-      .catch(() => {
-        aiBox.hidden = true; // Zugabe: ein Fehler stört die Mail nicht
-      });
-  }
-
-  const messageView = el(
-    'div',
-    { class: 'msg-full', hidden: true },
-    mailError && el('div', { class: 'inline-error' }, icon('alert', 16), el('span', {}, `${mailError} Angezeigt wird die Vorschau.`), el('button', { class: 'link', type: 'button', onclick: handlers.reload }, 'Erneut laden')),
-    mail.source === 'vorschau' && !mailError ? el('p', { class: 'hint' }, 'Nur Vorschau verfügbar.') : null,
-    mailText,
-    legend,
-    aiBox,
-  );
+  const body = createMailBody({ proposalId: p.id, mail, mailError, handlers });
   const tabSummary = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('summary') }, icon('sparkle', 14), 'Zusammenfassung');
   const tabMessage = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('message') }, icon('file', 14), 'Nachricht');
   function setView(v) {
     summaryView.hidden = v !== 'summary';
-    messageView.hidden = v !== 'message';
-    if (v === 'message') {
-      loadAi();
-      requestAnimationFrame(fitMailText);
-    }
-    if (eye) eye.hidden = v !== 'message';
+    body.node.hidden = v !== 'message';
+    if (v === 'message') body.show();
+    if (body.eye) body.eye.hidden = v !== 'message';
     tabSummary.setAttribute('aria-selected', String(v === 'summary'));
     tabMessage.setAttribute('aria-selected', String(v === 'message'));
     ctx.onView?.(v);
   }
-  const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg-row' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), eye), summaryView, messageView);
+  const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg-row' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), body.eye), summaryView, body.node);
   setView(ctx.view === 'message' ? 'message' : 'summary');
 
   container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, message, taskRow?.node, draftPanel?.node));

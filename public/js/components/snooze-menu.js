@@ -1,3 +1,4 @@
+// Menü "Später": Zeitpunkte aus snooze-options.js, bis zu denen eine Mail ausgeblendet wird.
 import { menuButton } from './menu.js';
 import { snoozeOptions } from '../snooze-options.js';
 

@@ -53,7 +53,7 @@ export const URGENCY_LABEL = { jetzt: 'Jetzt', heute: 'Heute', woche: 'Diese Woc
 /** Wie eine Mail nach Done kam. */
 export const FILED_LABEL = { done: 'Erledigt', angenommen: 'Aufgabe übernommen', beantwortet: 'Beantwortet' };
 
-export function initials(name, fallback = '?') {
+function initials(name, fallback = '?') {
   const parts = String(name || '').replace(/[<>()]/g, ' ').split(/[\s@.]+/).filter(Boolean);
   if (!parts.length) return fallback;
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
@@ -91,4 +91,9 @@ const ROLE = {
 export function roleChip(rolle) {
   const r = ROLE[rolle];
   return r ? el('span', { class: `role role-${rolle}`, title: r[1] }, r[0]) : null;
+}
+
+/** Kleine Marke (Pille) mit optionalem Symbol. cls z. B. 'ok', 'frist', 'u-jetzt'. */
+export function badge(text, cls = '', iconName) {
+  return el('span', { class: `badge ${cls}` }, iconName && icon(iconName, 12), text);
 }

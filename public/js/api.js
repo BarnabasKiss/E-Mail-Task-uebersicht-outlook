@@ -1,3 +1,4 @@
+// Alle Aufrufe an den lokalen Server (/api/...). Schreibende Aufrufe senden den Header x-mail-app, den der Server verlangt.
 async function request(method, url, body) {
   const res = await fetch(url, {
     method,

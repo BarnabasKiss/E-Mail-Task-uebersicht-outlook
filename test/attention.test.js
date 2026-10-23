@@ -28,12 +28,14 @@ test('Titel: wichtig vor offen, leer ohne Zähler', () => {
   assert.equal(titleFor({ open: 4, important: 2 }), '(2 wichtig) Mail-Übersicht');
 });
 
-test('Tab-Symbol: ohne Zähler nur der Brief, blau für offen, orange-rot für wichtig, ab 10 "9+"', () => {
-  assert.ok(!faviconSvg({ level: null }).includes('<circle'));
-  const open = faviconSvg({ level: 'open', count: 4 });
-  assert.ok(open.includes('#2563eb') && open.includes('>4<'));
-  const imp = faviconSvg({ level: 'important', count: 12, big: true });
-  assert.ok(imp.includes('#f2480b') && imp.includes('>9+<') && imp.includes('r="12.5"'));
+test('Tab-Symbol: der Brief wie im Original, bei Bedarf ein Punkt (blau offen, orange-rot wichtig) ohne Rand und Zahl', () => {
+  const none = faviconSvg({ level: null });
+  assert.ok(!none.includes('<circle') && none.includes('<rect x="3" y="5" width="18" height="14" rx="2"/>') && none.includes('viewBox="0 0 24 24"'));
+  const open = faviconSvg({ level: 'open' });
+  assert.ok(open.includes('#2563eb') && open.includes('<circle') && !open.includes('<text') && !open.includes('stroke="#fff"'));
+  assert.ok(open.startsWith(none.slice(0, none.indexOf('</g>'))), 'Brief unverändert groß');
+  const imp = faviconSvg({ level: 'important', big: true });
+  assert.ok(imp.includes('#f2480b') && imp.includes('r="6.5"') && !imp.includes('<text'));
   assert.ok(svgUrl(open).startsWith('data:image/svg+xml,%3Csvg'));
 });
 

@@ -17,22 +17,21 @@ export function createTabSignal() {
   link.removeAttribute('type');
   let timer = null;
 
-  const draw = (level, count, big = false) => {
-    link.href = svgUrl(faviconSvg({ level, count, big }));
+  const draw = (level, big = false) => {
+    link.href = svgUrl(faviconSvg({ level, big }));
   };
 
   return {
     update({ open, important, pulse = false }) {
       clearInterval(timer);
       const level = important ? 'important' : open ? 'open' : null;
-      const count = important || open;
       document.title = titleFor({ open, important });
-      draw(level, count);
+      draw(level);
       if (pulse && level === 'important') {
         let step = 0;
         timer = setInterval(() => {
           step += 1;
-          draw(level, count, step % 2 === 1);
+          draw(level, step % 2 === 1);
           if (step >= PULSE_STEPS) clearInterval(timer);
         }, PULSE_MS);
       }

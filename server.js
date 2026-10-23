@@ -9,7 +9,8 @@ import { createVault } from './lib/vault.js';
 import { createRules } from './lib/rules.js';
 import { createMatcher } from './lib/matcher.js';
 import { createDrafts } from './lib/drafts.js';
-import { createAttachments, useLocalTesseract } from './lib/attachments.js';
+import { createAttachments } from './lib/attachments.js';
+import { useLocalTesseract } from './lib/extract-text.js';
 import { createAttachmentReview } from './lib/attachment-review.js';
 import { createRoles } from './lib/roles.js';
 import { createAttachmentInfo } from './lib/attachment-info.js';
@@ -20,38 +21,51 @@ import { createApi } from './lib/api.js';
 
 const cfg = loadConfig();
 const log = (m) => console.log(`${new Date().toISOString()} ${m}`);
+const dataFile = (name) => path.join(cfg.dataDir, name);
+let scheduler; // wird unten erzeugt; Module, die ihn brauchen, greifen erst zur Laufzeit darauf zu
+const getScheduler = () => scheduler;
 
+// --- Grunddienste
 const n8n = createN8nClient(cfg.n8n);
 const claude = createClaude({ ...cfg.claude, cwd: cfg.dataDir });
-const store = createStore(path.join(cfg.dataDir, 'state.json'));
-const vault = createVault({ dir: cfg.vault.dir, tasksFile: cfg.vault.tasksFile, backupDir: path.join(cfg.dataDir, 'backups') });
+const store = createStore(dataFile('state.json'));
+const vault = createVault({ dir: cfg.vault.dir, tasksFile: cfg.vault.tasksFile, backupDir: dataFile('backups') });
 // Relativ = im App-Ordner (cfg.root), absolut = beliebiger Ort. Nicht im Vault.
 const rules = createRules({ file: path.resolve(cfg.root, cfg.rulesFile) });
 const matcher = createMatcher({ claude, vault, store });
-// Optional: entpacktes tesseract im Datenordner (ohne Installation, siehe README)
-if (useLocalTesseract(path.join(cfg.dataDir, 'tesseract'))) log('tesseract aus dem Datenordner');
-const attachments = createAttachments({ n8n, tmpDir: path.join(cfg.dataDir, 'tmp'), testDir: path.join(cfg.dataDir, 'test-anhaenge'), inlineOcr: cfg.attachments?.ocrInline !== false });
+
+// --- Anhänge, Entwürfe, Lernen
+// Optional: entpacktes tesseract im Datenordner (ohne Installation, siehe docs/installation.md)
+if (useLocalTesseract(dataFile('tesseract'))) log('tesseract aus dem Datenordner');
+const attachments = createAttachments({ n8n, tmpDir: dataFile('tmp'), testDir: dataFile('test-anhaenge'), inlineOcr: cfg.attachments?.ocrInline !== false });
 const drafts = createDrafts({
   n8n, claude, rules, store, attachments,
   ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize,
   readAttachments: cfg.attachments?.readByAi !== false,
 });
 const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames });
+
+// --- Module mit eigenem Hintergrundjob (Intervalle: docs/konfiguration.md)
+const roles = createRoles({ drafts, store, ownAddress: cfg.ownAddress, aliases: cfg.ownAliases, getScheduler, log });
+const attInfo = createAttachmentInfo({ attachments, store, getScheduler, log });
+const docIndex = createDocIndex({ attachments, drafts, file: dataFile('doc-index.json'), getScheduler, log });
 // Modul "Bewertung mit Anhängen": nur mit attachments.review.enabled, sonst läuft die App wie ohne.
-let scheduler;
 const review =
   cfg.attachments?.review?.enabled && cfg.attachments?.readByAi !== false
-    ? createAttachmentReview({ attachments, drafts, claude, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, getScheduler: () => scheduler, review: cfg.attachments.review, dataDir: cfg.dataDir, log })
+    ? createAttachmentReview({ attachments, drafts, claude, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, getScheduler, review: cfg.attachments.review, dataDir: cfg.dataDir, log })
     : null;
-const roles = createRoles({ drafts, store, ownAddress: cfg.ownAddress, aliases: cfg.ownAliases, getScheduler: () => scheduler, log });
-const attInfo = createAttachmentInfo({ attachments, store, getScheduler: () => scheduler, log });
-const docIndex = createDocIndex({ attachments, drafts, file: path.join(cfg.dataDir, 'doc-index.json'), getScheduler: () => scheduler, log });
-scheduler = createScheduler({
-  n8n, drafts, learner, store, poll: cfg.poll, log,
-  decorate: review?.decorate,
-  extraJobs: [['roles', roles.run, cfg.poll.rolesSec ?? 30], ['attInfo', attInfo.run, cfg.poll.attInfoSec ?? 30], ...(cfg.attachments?.searchDocs === false ? [] : [['docIndex', docIndex.run, cfg.poll.docIndexSec ?? 45]]), ...(review ? [['review', review.run, cfg.poll.reviewSec ?? 90]] : [])],
-});
 
+const poll = cfg.poll;
+const extraJobs = [
+  ['roles', roles.run, poll.rolesSec ?? 30],
+  ['attInfo', attInfo.run, poll.attInfoSec ?? 30],
+];
+if (cfg.attachments?.searchDocs !== false) extraJobs.push(['docIndex', docIndex.run, poll.docIndexSec ?? 45]);
+if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
+
+scheduler = createScheduler({ n8n, drafts, learner, store, poll, log, decorate: review?.decorate, extraJobs });
+
+// --- Webserver (nur localhost)
 const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex });
 const server = http.createServer(handler);
 server.listen(cfg.port, '127.0.0.1', () => {

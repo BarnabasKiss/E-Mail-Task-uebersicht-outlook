@@ -1,3 +1,4 @@
+// Aufklappmenüs (Später, Done mit Zusatzmenü), die sich gegenseitig schließen.
 import { el } from '../util.js';
 import { icon } from '../icons.js';
 
@@ -17,7 +18,7 @@ document.addEventListener('keydown', (e) => {
  * (für längere Hinweise), sonst steht er rechts daneben (für kurze wie Datumsangaben).
  * Gibt { root, toggle(), close() } zurück; `trigger` ist das Element, das das Menü öffnet.
  */
-export function attachMenu(root, trigger, items) {
+function attachMenu(root, trigger, items) {
   const list = el(
     'div',
     { class: 'menu', role: 'menu', hidden: true },
