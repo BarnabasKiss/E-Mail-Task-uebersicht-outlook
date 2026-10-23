@@ -48,6 +48,13 @@ eine Telefon- oder lange Zahl, wird **nichts an Claude gesendet**: Der Entwurf e
   höchstens 30 Mails für allgemeine Regeln und 5 je Person für höchstens 12 Personen). Besteht eine Mail die Prüfung nicht, bleibt sie draußen.
   Alles Abgeleitete ist als „prüfen“ markiert beziehungsweise steht in einem eigenen Abschnitt der Regeldatei.
 
+## Textwerkzeuge und Spracheingabe
+- **Rechtschreibung, Struktur, Lücken suchen und Betreff vorschlagen** laufen über das lokale `claude -p`, mit demselben Schutz wie die Entwürfe: Der Text geht pseudonymisiert an Claude (Namen, Nummern, Adressen als Platzhalter)
+  und wird danach zurückübersetzt. Fehlt in Claudes Antwort ein Platzhalter, wird der Vorschlag verworfen. Bei „Lücken“ geht bei Antworten zusätzlich die Mail mit, auf die du antwortest (ebenfalls pseudonymisiert).
+- **Diktieren** nutzt die Spracherkennung deines Browsers, nicht die App. In Chrome und Edge wird das Audio dafür an den Anbieter des Browsers geschickt; diese Erkennung ist also nicht lokal. Für vertrauliche Inhalte
+  lieber das Diktat des Betriebssystems verwenden (Windows: Win+H) oder nicht diktieren.
+- **Entwürfe und geplante Mails** liegen nur lokal in `state.json` im Datenordner (mit echten Inhalten, wie die Entwürfe der Antworten). Eine geplante Mail geht erst zur Sendezeit an Outlook.
+
 ## Adressbuch
 Das Adressbuch (Vorschläge bei An, CC, BCC) liegt nur lokal in `address-book.json` im Datenordner, mit echten Namen und Adressen. Es geht nicht an Claude und nicht ins Netz. Aus Outlook kommen nur
 deine persönlichen Kontakte, und nur auf deinen Klick („Aus Outlook übernehmen“). Die Datei nicht in eine Cloud legen.

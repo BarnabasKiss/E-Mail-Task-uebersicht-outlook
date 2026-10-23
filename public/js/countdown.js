@@ -2,6 +2,9 @@
 import { el } from './util.js';
 import { icon } from './icons.js';
 
+// So lange kannst du nach "Senden" noch abbrechen und etwas ändern
+export const UNDO_SECONDS = 30;
+
 /**
  * bar: Element, in dem der Hinweis steht. text(left): Hinweistext. send(): Promise<boolean>. Rückgabe: { stop() }.
  * onStop(why): 'cancel' (Rückgängig) | 'failed' (send() meldete false) | 'done' (gesendet), danach ist die Bedenkzeit vorbei.

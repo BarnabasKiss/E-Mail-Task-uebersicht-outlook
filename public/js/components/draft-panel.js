@@ -1,6 +1,7 @@
 import { el, toast } from '../util.js';
 import { icon } from '../icons.js';
 import { createSendBox } from './send-box.js';
+import { createImproveBar } from './improve-bar.js';
 
 // Antwortentwurf: editierbar, kopierbar, neu erzeugbar, als Variante (kürzer, förmlicher, freundlicher, Ablehnung) und mit Hinweis.
 // Ablage: Zwischenablage, als Entwurf in Outlook oder gleich senden (send-box.js; bei Testmails nur simuliert).
@@ -12,7 +13,7 @@ const VARIANTS = [
 ];
 const VARIANT_LABEL = Object.fromEntries(VARIANTS.map((v) => [v.id, v.label.toLowerCase()]));
 
-export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, onArchive, undoSeconds }) {
+export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, onArchive, onSchedule, onUnschedule, onImprove, onSaveEdit, undoSeconds }) {
   const area = el('textarea', { class: 'draft-text', rows: 7, 'aria-label': 'Antwortentwurf', placeholder: 'Der Entwurf erscheint hier …' });
   const status = el('span', { class: 'draft-status' });
   const copy = el('button', { class: 'btn', type: 'button', onclick: copyText }, icon('copy', 15), el('span', {}, 'Kopieren'));
@@ -38,8 +39,19 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
 
   const sendBox =
     reply && onOutlookDraft
-      ? createSendBox({ isTest, suggest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, archive: onArchive, undoSeconds })
+      ? createSendBox({ isTest, suggest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, archive: onArchive, schedule: onSchedule, unschedule: onUnschedule, undoSeconds })
       : null;
+
+  // Werkzeuge für den Text im Feld: Rechtschreibung, Struktur, Lücken, Diktieren (mit Rückgängig)
+  const improve = onImprove
+    ? createImproveBar({
+        getText: () => area.value,
+        setText: (t) => { area.value = t; render(); grow(); },
+        textarea: area,
+        run: ({ mode }) => onImprove({ mode, text: area.value, to: reply ? [reply.sender] : [] }),
+        onTextChange: () => queueEdit(),
+      })
+    : null;
 
   const node = el(
     'section',
@@ -47,7 +59,9 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
     el('div', { class: 'card-head' }, el('h3', {}, 'Antwortentwurf'), status, el('span', { class: 'spacer' }), copy, regen),
     errorBox,
     tools,
+    improve?.node,
     area,
+    improve?.gapsNode,
     sendBox?.node,
   );
 
@@ -58,9 +72,18 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
     area.style.height = 'auto';
     area.style.height = `${Math.min(Math.max(area.scrollHeight + 2, 120), 380)}px`;
   }
+  // Was du im Feld änderst, bleibt erhalten (auch nach dem Neuladen), ohne den erzeugten Entwurf zu überschreiben: das Lernen vergleicht beides
+  let editTimer = null;
+  function queueEdit() {
+    if (!onSaveEdit) return;
+    clearTimeout(editTimer);
+    editTimer = setTimeout(() => onSaveEdit(area.value).catch(() => {}), 1200);
+  }
   area.addEventListener('input', () => {
     grow();
     render();
+    queueEdit();
+    improve?.update();
   });
 
   async function copyText() {
@@ -101,6 +124,7 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
     const { draft: d, error: e } = current;
     copy.disabled = !area.value.trim();
     sendBox?.update();
+    improve?.update();
     regen.disabled = busy;
     for (const { v, btn } of variantButtons) btn.disabled = busy || (v.needsText && !area.value.trim());
     hint.disabled = busy;
@@ -121,7 +145,7 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
     } else status.textContent = '';
   }
 
-  area.value = draft?.text || '';
+  area.value = draft?.edited ?? draft?.text ?? '';
   render();
   queueMicrotask(grow);
 

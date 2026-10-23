@@ -3,10 +3,11 @@ import { el, formatShort } from './util.js';
 import { icon } from './icons.js';
 
 /** Statusanzeige oben (Aktualisiert um ..., Fehler, "Claude arbeitet"). update() fragt den Server und zeichnet neu. */
-export function createStatusBar({ chip, rulesLink }) {
+export function createStatusBar({ chip, rulesLink, onStatus = () => {} }) {
   async function update() {
     try {
       const s = await api.status();
+      onStatus(s);
       chip.className = `status${s.error ? ' error' : ''}`;
       chip.replaceChildren(
         ...[

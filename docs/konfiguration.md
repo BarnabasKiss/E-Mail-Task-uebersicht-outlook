@@ -59,6 +59,7 @@ der gilt, wenn der Schlüssel fehlt.
 | `attInfoSec` | Anhangsnamen für den Anhang-Tag holen (6 Mails je Lauf) | 30 |
 | `docIndexSec` | Suchindex nachführen (2 Mails je Lauf) | 45 |
 | `addressBookSec` | Absender und Empfänger der Mails ins Adressbuch übernehmen | 120 |
+| `outboxSec` | geplante Mails senden, die fällig sind | 30 |
 
 Die Oberfläche selbst lädt die Liste alle 30 Sekunden neu (siehe `public/js/main.js`).
 

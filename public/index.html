@@ -15,12 +15,13 @@
     </div>
     <span id="status" class="status" role="status" aria-live="polite"></span>
     <span class="spacer"></span>
-    <button id="compose-link" class="btn primary" type="button" title="Neue Mail schreiben und senden">Neue Mail</button>
-    <a id="contacts-link" class="btn ghost" href="#" title="Adressbuch: Vorschläge bei An, CC und BCC">Kontakte</a>
-    <a id="learn-link" class="btn ghost" href="#" title="Aus gesendeten Mails Regeln und Gewohnheiten lernen">Lernen</a>
-    <a id="rules-link" class="btn ghost" href="#" title="Regeldatei öffnen">Regeln</a>
+    <button id="compose-link" class="btn primary" type="button" data-icon="pencil" title="Neue Mail schreiben und senden">Neue Mail</button>
+    <button id="outbox-link" class="btn ghost" type="button" data-icon="send" title="Entwürfe und geplante Mails"><span>Entwürfe</span><span id="outbox-badge" class="nav-badge" hidden></span></button>
+    <a id="contacts-link" class="btn ghost" href="#" data-icon="users" title="Adressbuch: Vorschläge bei An, CC und BCC">Kontakte</a>
+    <a id="learn-link" class="btn ghost" href="#" data-icon="lightbulb" title="Aus gesendeten Mails Regeln und Gewohnheiten lernen">Lernen</a>
+    <a id="rules-link" class="btn ghost" href="#" data-icon="book" title="Regeldatei öffnen">Regeln</a>
     <button id="notify" class="btn ghost icon-only" type="button" hidden></button>
-    <button id="refresh" class="btn ghost" type="button" title="Jetzt neu laden">Aktualisieren</button>
+    <button id="refresh" class="btn ghost" type="button" data-icon="refresh" title="Jetzt neu laden">Aktualisieren</button>
   </header>
 
   <main class="layout">

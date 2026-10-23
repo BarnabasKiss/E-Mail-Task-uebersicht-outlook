@@ -1,21 +1,20 @@
 // Unter dem Antwortentwurf: Empfänger (An, CC, BCC, mit Vorschlägen aus dem Adressbuch) prüfen, in Outlook ablegen oder senden.
-// Senden legt den Entwurf zuerst in Outlook ab und wartet dann 10 Sekunden ("Rückgängig"), bevor wirklich gesendet wird. Die Mail bleibt danach
+// Senden legt den Entwurf zuerst in Outlook ab und wartet dann 30 Sekunden ("Rückgängig"), bevor wirklich gesendet wird; Senden planen sendet zur gewählten Zeit. Die Mail bleibt danach
 // offen; "Senden & Done" legt sie gleich in Done ab, und nach dem Senden bietet die App „In Done ablegen“ an.
 // Mit offenen Platzhaltern ([BITTE ERGÄNZEN …]), ohne Empfänger oder mit halber Eingabe in einem Feld geht es nicht.
 import { el, toast, formatShort } from '../util.js';
 import { icon } from '../icons.js';
 import { createRecipientField } from './recipient-field.js';
-import { startCountdown } from '../countdown.js';
-
-const UNDO_SECONDS = 10;
+import { startCountdown, UNDO_SECONDS } from '../countdown.js';
+import { createScheduleMenu } from './schedule-menu.js';
 
 /**
  * reply: { names, only: {to, cc}, all: {to, cc}, draft: gemerkter Outlook-Entwurf | null }
  * getText(): Text im Feld. ownSignature(): Signatur deiner letzten Nachricht ('' = keine bekannt). suggest(q, exclude) -> Vorschläge.
  * save({text, to, cc, bcc}) -> { webLink, savedAt, simulated } (wirft bei Fehler). send({done}) -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
- * archive() legt die Mail in Done ab (Knopf nach dem Senden).
+ * archive() legt die Mail in Done ab (Knopf nach dem Senden). schedule(payload, sendAt) plant die Mail, unschedule(id) nimmt die Planung zurück.
  */
-export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, undoSeconds = UNDO_SECONDS }) {
+export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, schedule, unschedule, undoSeconds = UNDO_SECONDS }) {
   const saved = reply.draft;
   const hasAll = JSON.stringify([reply.all.to, reply.all.cc]) !== JSON.stringify([reply.only.to, reply.only.cc]);
   const start = saved ? { to: saved.to, cc: saved.cc, bcc: saved.bcc || [] } : { ...reply.only, bcc: [] };
@@ -39,6 +38,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   const sendBtn = el('button', { class: 'btn primary', type: 'button', onclick: () => doSend() }, icon('check', 15), el('span', {}, 'Senden'));
   const sendDoneBtn = el('button', { class: 'btn', type: 'button', title: 'Senden und die Mail gleich in Done ablegen', onclick: () => doSend({ done: true }) }, icon('archive', 15), el('span', {}, 'Senden & Done'));
   const undoBar = el('div', { class: 'send-undo', hidden: true });
+  const planner = createScheduleMenu({ withDone: true, onPick: (iso, o) => doSchedule(iso, o) });
   let busy = false;
   let countdown = null;
 
@@ -71,7 +71,8 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     saveBtn.disabled = off || !getText().trim() || !to.get().length;
     sendBtn.disabled = off || !!why;
     sendDoneBtn.disabled = off || !!why;
-    sendBtn.title = why || 'Legt den Entwurf in Outlook ab und sendet nach 10 Sekunden (mit Rückgängig). Die Mail bleibt offen.';
+    planner.setDisabled(off || !!why || !schedule, why);
+    sendBtn.title = why || `Legt den Entwurf in Outlook ab und sendet nach ${undoSeconds} Sekunden (mit Rückgängig). Die Mail bleibt offen.`;
     for (const f of [to, cc, bcc]) f.setDisabled(off);
   }
 
@@ -81,11 +82,13 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
       return;
     }
     status.replaceChildren(
-      icon('check', 14),
-      `In Outlook abgelegt${out.savedAt ? ` (${formatShort(out.savedAt)})` : ''} `,
-      out.webLink && el('a', { href: out.webLink, target: '_blank', rel: 'noopener', class: 'link' }, 'In Outlook öffnen'),
-      ' · ',
-      el('button', { class: 'link', type: 'button', onclick: doDiscard }, 'Entwurf dort löschen'),
+      ...[
+        icon('check', 14),
+        `In Outlook abgelegt${out.savedAt ? ` (${formatShort(out.savedAt)})` : ''} `,
+        out.webLink && el('a', { href: out.webLink, target: '_blank', rel: 'noopener', class: 'link' }, 'In Outlook öffnen'),
+        ' · ',
+        el('button', { class: 'link', type: 'button', onclick: doDiscard }, 'Entwurf dort löschen'),
+      ].filter(Boolean),
     );
   }
 
@@ -127,7 +130,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     countdown = startCountdown({
       bar: undoBar,
       seconds: undoSeconds,
-      text: (left) => `Wird in ${left} s an ${who} gesendet${done ? ' und danach in Done abgelegt' : ''}.`,
+      text: (left) => `Wird in ${left} s an ${who} gesendet${done ? ' und danach in Done abgelegt' : ''}. Mit „Rückgängig“ kannst du noch etwas ändern.`,
       send: () => send({ done }),
       onStop: (reason) => {
         countdown = null;
@@ -140,12 +143,33 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     update();
   }
 
+  // Planen: die App sendet zur gewählten Zeit (legt dann erst den Entwurf in Outlook an); bis dahin lässt sich die Planung zurücknehmen
+  async function doSchedule(iso, { done = false } = {}) {
+    [to, cc, bcc].forEach((f) => f.commit());
+    const why = problem();
+    if (why) return toast(why, { error: true });
+    busy = true;
+    update();
+    try {
+      const out = await schedule({ ...payload(), done }, iso);
+      const when = new Date(iso).toLocaleString('de-AT', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      status.replaceChildren(icon('clock', 14), `Geplant für ${when}${done ? ' (danach in Done)' : ''}. Die Mail bleibt bis dahin offen. `, el('button', { class: 'link', type: 'button', onclick: async () => { await unschedule(out.id); status.textContent = 'Planung zurückgenommen.'; } }, 'Planung zurücknehmen'));
+    } catch (e) {
+      toast(e.message, { error: true });
+    } finally {
+      busy = false;
+      update();
+    }
+  }
+
   // Nach dem Senden bleibt die Mail offen; hier kann sie gleich in Done wandern
   function showSent(who) {
     status.replaceChildren(
-      icon('check', 14),
-      `${isTest ? 'Test: nichts gesendet (simuliert)' : 'Gesendet'} (${formatShort(new Date().toISOString())}) an ${who}. `,
-      archive && el('button', { class: 'link', type: 'button', onclick: () => archive() }, 'In Done ablegen'),
+      ...[
+        icon('check', 14),
+        `${isTest ? 'Test: nichts gesendet (simuliert)' : 'Gesendet'} (${formatShort(new Date().toISOString())}) an ${who}. `,
+        archive && el('button', { class: 'link', type: 'button', onclick: () => archive() }, 'In Done ablegen'),
+      ].filter(Boolean),
     );
   }
 
@@ -161,7 +185,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     el('div', { class: 'send-row' }, cc.node, bccLink),
     bccRow,
     sigRow,
-    el('div', { class: 'send-actions' }, saveBtn, sendBtn, sendDoneBtn),
+    el('div', { class: 'send-actions' }, sendBtn, sendDoneBtn, planner.node, saveBtn),
     undoBar,
     status,
   );

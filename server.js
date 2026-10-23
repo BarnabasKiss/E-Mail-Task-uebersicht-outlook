@@ -20,6 +20,8 @@ import { createLearner } from './lib/learner.js';
 import { createHistoryLearner } from './lib/history-learner.js';
 import { createAddressBook } from './lib/address-book.js';
 import { createAddressJob } from './lib/address-job.js';
+import { createOutbox } from './lib/outbox.js';
+import { createTextTools } from './lib/text-tools.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
 
@@ -53,6 +55,8 @@ const drafts = createDrafts({
 });
 const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames, contacts });
 const addressBook = createAddressBook({ file: dataFile('address-book.json'), ownAddresses: [cfg.ownAddress, ...(cfg.ownAliases || [])], log });
+const outbox = createOutbox({ n8n, store, getScheduler, drafts, addressBook, log });
+const textTools = createTextTools({ claude, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize, nameOf: (a) => addressBook.search(a, { limit: 1 }).find((p) => p.address === String(a).toLowerCase())?.name || '' });
 const history = createHistoryLearner({ addressBook, n8n, claude, rules, contacts, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, log });
 
 // --- Module mit eigenem Hintergrundjob (Intervalle: docs/konfiguration.md)
@@ -71,6 +75,7 @@ const extraJobs = [
   ['roles', roles.run, poll.rolesSec ?? 30],
   ['attInfo', attInfo.run, poll.attInfoSec ?? 30],
   ['addressBook', addressJob.run, poll.addressBookSec ?? 120],
+  ['outbox', outbox.runDue, poll.outboxSec ?? 30],
 ];
 if (cfg.attachments?.searchDocs !== false) extraJobs.push(['docIndex', docIndex.run, poll.docIndexSec ?? 45]);
 if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
@@ -78,7 +83,7 @@ if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
 scheduler = createScheduler({ n8n, drafts, learner, store, poll, log, decorate: review?.decorate, extraJobs });
 
 // --- Webserver (nur localhost)
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook });
+const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook, outbox, textTools });
 const server = http.createServer(handler);
 server.listen(cfg.port, '127.0.0.1', () => {
   log(`Mail-App läuft auf http://localhost:${cfg.port}`);

@@ -14,6 +14,8 @@ import { createAttachments } from '../lib/attachments.js';
 import { createDrafts } from '../lib/drafts.js';
 import { createContacts } from '../lib/contacts.js';
 import { createAddressBook } from '../lib/address-book.js';
+import { createOutbox } from '../lib/outbox.js';
+import { createTextTools } from '../lib/text-tools.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const addr = (name, address) => ({ emailAddress: { name, address } });
@@ -75,10 +77,12 @@ async function start({ rows = { neu: [row(1), row(2, { dringlichkeit: 'jetzt' })
   const rules = { urgencyRules: () => urgency, setUrgencyRule: (...a) => ruleCalls.push(a), file: path.join(dir, 'Regeln.md'), read: () => '' };
   const contacts = createContacts({ store });
   const addressBook = createAddressBook({ file: path.join(dir, 'book.json'), ownAddresses: [OWN], log: () => {} });
+  const outbox = createOutbox({ n8n, store, scheduler, drafts, addressBook, log: () => {} });
+  const textTools = createTextTools({ claude: { run: async (p) => p.split('TEXT:\n')[1] ?? 'Betreff', runJson: async () => ({ gaps: [{ punkt: 'Frist', hinweis: 'fehlt' }] }) }, ownNames: ['barni'], ownAddress: OWN, pseudonymize: false });
   const vault = { headings: () => ['Kunden', 'Intern'], addTask: () => ({}) };
-  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex, contacts, addressBook }));
+  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex, contacts, addressBook, outbox, textTools }));
   const get = (p, init) => fetch(`http://127.0.0.1:${port}${p}`, init);
-  return { addressBook, get, calls, ruleCalls, setUrgency: (u) => (urgency = u), contacts, port, store, close: () => server.close() };
+  return { outbox, addressBook, get, calls, ruleCalls, setUrgency: (u) => (urgency = u), contacts, port, store, close: () => server.close() };
 }
 
 test('Liste: nach Dringlichkeit sortiert, mit Rolle, Anhängen und Done-Liste', async () => {
@@ -312,6 +316,44 @@ test('Neue Mail: compose-info liefert die gemerkte Signatur', async () => {
     assert.deepEqual(await (await s.get('/api/compose-info')).json(), { signature: '', ownAddress: OWN });
     s.store.set('settings', 'signature', 'Barni Kiss\nTel.: +43 1');
     assert.equal((await (await s.get('/api/compose-info')).json()).signature, 'Barni Kiss\nTel.: +43 1');
+  } finally {
+    s.close();
+  }
+});
+
+test('Ausgang: Entwürfe und Geplantes über Aktionen, Liste, Zähler im Status, Antwort-Änderungen in der Detailansicht', async () => {
+  const s = await start();
+  try {
+    const post = (name, body) => s.get(`/api/actions/${name}`, { method: 'POST', headers: { 'x-mail-app': '1', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const saved = await (await post('mail-draft-save', { subject: 'Angebot', text: 'Hallo', to: ['max@y.at'] })).json();
+    assert.ok(saved.id);
+    const at = new Date(Date.now() + 3600_000).toISOString();
+    const sched = await (await post('schedule', { kind: 'new', payload: { subject: 'Später', text: 'Hallo', to: ['a@x.at'] }, sendAt: at })).json();
+    assert.ok(sched.id);
+    assert.equal((await post('schedule', { kind: 'new', payload: { subject: 'Zu früh', text: 'x', to: ['a@x.at'] }, sendAt: new Date().toISOString() })).status, 500);
+    const list = await (await s.get('/api/outbox')).json();
+    assert.deepEqual([list.drafts.length, list.scheduled.length, list.counts], [1, 1, { drafts: 1, scheduled: 1, failed: 0 }]);
+    assert.deepEqual((await (await s.get('/api/status')).json()).outbox, { drafts: 1, scheduled: 1, failed: 0 });
+    assert.equal((await post('reply-edit', { id: 1, text: 'Von Hand geändert' })).status, 200);
+    s.store.set('drafts', 'M1', { text: 'Erzeugt', createdAt: 'x' });
+    const detail = await (await s.get('/api/proposals/1')).json();
+    assert.deepEqual([detail.draft.text, detail.draft.edited], ['Erzeugt', 'Von Hand geändert']);
+    assert.equal((await post('schedule-cancel', { id: sched.id })).status, 200);
+    assert.equal((await post('mail-draft-delete', { id: saved.id })).status, 200);
+    assert.deepEqual((await (await s.get('/api/outbox')).json()).counts, { drafts: 0, scheduled: 0, failed: 0 });
+  } finally {
+    s.close();
+  }
+});
+
+test('Textwerkzeuge über die Aktionen: Verbessern, Lücken, Betreff', async () => {
+  const s = await start();
+  try {
+    const post = (name, body) => s.get(`/api/actions/${name}`, { method: 'POST', headers: { 'x-mail-app': '1', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await (await post('text-improve', { mode: 'spelling', text: 'Hallo Max' })).json()).text, 'Hallo Max');
+    assert.deepEqual((await (await post('text-improve', { mode: 'gaps', text: 'Hallo' })).json()).gaps, [{ punkt: 'Frist', hinweis: 'fehlt' }]);
+    assert.ok((await (await post('text-subject', { text: 'Bitte das Angebot prüfen.' })).json()).subject);
+    assert.equal((await post('text-improve', { mode: 'zaubern', text: 'x' })).status, 500);
   } finally {
     s.close();
   }

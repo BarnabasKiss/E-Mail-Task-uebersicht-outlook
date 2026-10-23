@@ -18,6 +18,7 @@ export const api = {
   thread: (id, { before = '', limit = 10 } = {}) => request('GET', `/api/proposals/${id}/thread?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   suggest: (q, exclude = []) => request('GET', `/api/address-book/suggest?q=${encodeURIComponent(q)}${exclude.length ? `&exclude=${encodeURIComponent(exclude.join(','))}` : ''}`).then((r) => r.items),
   addressBook: ({ q = '', source = '', limit = 200 } = {}) => request('GET', `/api/address-book?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}&limit=${limit}`),
+  outbox: () => request('GET', '/api/outbox'),
   composeInfo: () => request('GET', '/api/compose-info'),
   contact: (address) => request('GET', `/api/contacts/${encodeURIComponent(address)}`),
   historyLearn: () => request('GET', '/api/history-learn'),

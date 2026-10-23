@@ -14,6 +14,8 @@ import outlookDraftDelete from './outlook-draft-delete.js';
 import outlookSend from './outlook-send.js';
 import book from './book.js';
 import { composeDraft, composeSend, composeDiscard } from './compose.js';
+import { textImprove, textSubject } from './text-tools.js';
+import { mailDraftSave, mailDraftDelete, schedule, scheduleCancel, scheduleNow, replyEdit } from './outbox.js';
 import bulk from './bulk.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, book, composeDraft, composeSend, composeDiscard, bulk].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, book, composeDraft, composeSend, composeDiscard, textImprove, textSubject, mailDraftSave, mailDraftDelete, schedule, scheduleCancel, scheduleNow, replyEdit, bulk].map((a) => [a.name, a]));

@@ -368,11 +368,12 @@ test('Senden: Signatur aus dem Verlauf lässt sich anhängen', opts, async () =>
   await tick(40); // der Verlauf wird im Hintergrund geladen
   const sigBox = box.querySelector('.send-sig');
   assert.ok(!sigBox.hidden, 'Signatur gefunden');
-  box.querySelector('.send-actions .btn').click();
+  const outlookBtn = () => [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Outlook ablegen'));
+  outlookBtn().click();
   await tick(30);
   assert.equal(calls[0].text, `Hallo Helga,\n\nTermin passt.\n\n${SIG}`);
   sigBox.querySelector('input').checked = false;
-  box.querySelector('.send-actions .btn').click();
+  outlookBtn().click();
   await tick(30);
   assert.equal(calls[1].text, 'Hallo Helga,\n\nTermin passt.');
 });
@@ -485,7 +486,7 @@ test('Senden lässt die Mail offen und bietet danach "In Done ablegen" an; "Send
   const extra = { undoSeconds: 1, outlookDraft: async () => ({}), outlookSend: async (o) => (sends.push(o), true), outlookDraftDelete: async () => {} };
   const { box, calls } = await render(draftData(reply()), { extra });
   const btn = (b, name) => [...b.querySelectorAll('.send-actions .btn')].find((x) => x.textContent.trim() === name);
-  assert.deepEqual([...box.querySelectorAll('.send-actions .btn')].map((b) => b.textContent.trim()), ['In Outlook ablegen', 'Senden', 'Senden & Done']);
+  assert.deepEqual([...box.querySelectorAll('.send-actions .btn')].map((b) => b.textContent.trim()), ['Senden', 'Senden & Done', 'Senden planen', 'In Outlook ablegen']);
   btn(box, 'Senden').click();
   await tick(1500);
   assert.deepEqual(sends, [{ done: false }]);
@@ -513,38 +514,119 @@ async function composeView(opts2 = {}) {
   const view = renderCompose(box, {
     signature: 'Barni Kiss\nTel.: +43 1',
     suggest: async (q) => (q.startsWith('an') ? [{ name: 'Anna Berger', address: 'anna@kunde.at', company: 'Kunde GmbH' }] : []),
+    appSave: async (p) => (calls.push(['appSave', p]), { id: 'A1', updatedAt: '2026-10-23T09:00:00Z' }),
+    appDelete: async (id) => calls.push(['appDelete', id]),
     save: async (p) => (calls.push(['save', p]), { draftId: `D${calls.length}`, webLink: 'https://outlook/n', savedAt: '2026-10-23T09:00:00Z' }),
     send: async (p) => (calls.push(['send', p]), true),
     discard: async (p) => calls.push(['discard', p]),
+    schedule: async (p, at) => calls.push(['schedule', p, at]),
+    improve: async (o) => (calls.push(['improve', o]), o.mode === 'gaps' ? { gaps: [{ punkt: 'Frist', hinweis: 'Es fehlt ein Datum' }] } : { text: `${o.text} (verbessert)` }),
+    makeSubject: async (o) => (calls.push(['subject', o]), { subject: 'Angebot Oktober' }),
     back: () => calls.push(['back']),
     undoSeconds: 1,
+    autosaveMs: 30,
     ...opts2,
   });
   return { box, calls, view };
 }
 const cbtn = (box, name) => [...box.querySelectorAll('.cp-card .send-actions .btn')].find((b) => b.textContent.trim() === name);
+const setText = (box, v) => {
+  const t = box.querySelector('.cp-text');
+  t.value = v;
+  t.dispatchEvent(new w.Event('input', { bubbles: true }));
+};
 
-test('Neue Mail: Pflichtfelder (An, Betreff, Text) sperren Ablegen und Senden mit Grund', opts, async () => {
+test('Neue Mail: Aufbau wie die Antwort (zuerst der Text, dann Betreff, dann An/CC/BCC und die Knöpfe)', opts, async () => {
+  const { box } = await composeView();
+  const order = [...box.querySelectorAll('.cp-card > *')].map((c) => (c.classList.contains('imp-bar') ? 'Werkzeuge' : c.classList.contains('cp-text') ? 'Text' : c.classList.contains('cp-subject-row') ? 'Betreff' : c.querySelector?.('.rf[data-label="An"]') ? 'An' : c.querySelector?.('.rf[data-label="CC"]') ? 'CC' : c.classList.contains('send-actions') ? 'Knöpfe' : '')).filter(Boolean);
+  assert.deepEqual(order, ['Werkzeuge', 'Text', 'Betreff', 'An', 'CC', 'Knöpfe']);
+  assert.deepEqual([...box.querySelectorAll('.cp-card .send-actions .btn')].map((b) => b.textContent.trim()), ['Senden', 'Senden planen', 'In Outlook ablegen', 'Verwerfen']);
+});
+
+test('Neue Mail: Pflichtfelder (Text, Betreff, An) sperren Senden, Planen und Ablegen mit Grund', opts, async () => {
   const { box } = await composeView();
   assert.ok(cbtn(box, 'Senden').disabled);
-  assert.match(cbtn(box, 'Senden').title, /Empfänger bei An/);
-  const to = box.querySelector('.rf[data-label="An"] .rf-input');
-  await typeInto(to, 'max@y.at');
-  key(to, 'Enter');
+  assert.match(cbtn(box, 'Senden').title, /Text ist leer/);
+  setText(box, 'Guten Tag, anbei das Angebot.');
   assert.match(cbtn(box, 'Senden').title, /Betreff/);
   const subj = box.querySelector('.cp-subject');
   subj.value = 'Angebot';
   subj.dispatchEvent(new w.Event('input'));
-  assert.match(cbtn(box, 'Senden').title, /Text ist leer/);
-  const text = box.querySelector('.cp-text');
-  text.value = 'Guten Tag, anbei das Angebot.';
-  text.dispatchEvent(new w.Event('input'));
-  assert.ok(!cbtn(box, 'Senden').disabled && !cbtn(box, 'In Outlook ablegen').disabled);
+  assert.match(cbtn(box, 'Senden').title, /Empfänger bei An/);
+  assert.ok(cbtn(box, 'Senden planen').disabled, 'Planen gesperrt');
+  const to = box.querySelector('.rf[data-label="An"] .rf-input');
+  await typeInto(to, 'max@y.at');
+  key(to, 'Enter');
+  assert.ok(!cbtn(box, 'Senden').disabled && !cbtn(box, 'In Outlook ablegen').disabled && !cbtn(box, 'Senden planen').disabled);
 });
 
-test('Neue Mail: Ablegen sendet Betreff, Text mit Signatur, An, CC, BCC; erneutes Ablegen ersetzt den alten Entwurf', opts, async () => {
+test('Neue Mail: Betreff per Knopf vorschlagen (nur mit Text) und danach änderbar', opts, async () => {
+  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'] } });
+  const btn = [...box.querySelectorAll('.cp-subject-row .btn')].find((b) => b.textContent.includes('Betreff vorschlagen'));
+  assert.ok(btn.disabled, 'ohne Text kein Vorschlag');
+  setText(box, 'Anbei das Angebot für Oktober.');
+  assert.ok(!btn.disabled);
+  btn.click();
+  await tick(30);
+  assert.deepEqual(calls.find((c) => c[0] === 'subject')[1], { text: 'Anbei das Angebot für Oktober.', to: ['max@y.at'] });
+  const subj = box.querySelector('.cp-subject');
+  assert.equal(subj.value, 'Angebot Oktober');
+  subj.value = 'Angebot Oktober (angepasst)';
+  subj.dispatchEvent(new w.Event('input'));
+  assert.equal(subj.value, 'Angebot Oktober (angepasst)');
+});
+
+test('Neue Mail: Verbessern mit Rückgängig (Rechtschreibung, Struktur) und Lücken als Liste, Text bleibt bei Lücken unverändert', opts, async () => {
+  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'S', text: 'Hallo Max' } });
+  const imp = (name) => [...box.querySelectorAll('.imp-bar .btn')].find((b) => b.textContent.trim() === name);
+  assert.deepEqual([...box.querySelectorAll('.imp-bar .btn')].filter((b) => !b.hidden).map((b) => b.textContent.trim()), ['Rechtschreibung', 'Rechtschreibung & Struktur', 'Lücken suchen', 'Diktieren']);
+  imp('Rechtschreibung').click();
+  await tick(30);
+  assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert)');
+  assert.deepEqual(calls.find((c) => c[0] === 'improve')[1], { mode: 'spelling', text: 'Hallo Max', subject: 'S', to: ['max@y.at'] });
+  imp('Rechtschreibung & Struktur').click();
+  await tick(30);
+  assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert) (verbessert)');
+  imp('Vorige Version').click();
+  assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert)');
+  imp('Vorige Version').click();
+  assert.equal(box.querySelector('.cp-text').value, 'Hallo Max', 'zwei Schritte zurück');
+  assert.ok(imp('Vorige Version').hidden, 'nichts mehr zurückzuholen');
+  imp('Lücken suchen').click();
+  await tick(30);
+  assert.equal(box.querySelector('.cp-text').value, 'Hallo Max', 'Lücken ändern den Text nicht');
+  assert.match(box.querySelector('.imp-gaps').textContent, /1 mögliche Lücke.*Frist.*Es fehlt ein Datum/);
+  box.querySelector('.imp-gaps li .icon-btn').click();
+  assert.ok(box.querySelector('.imp-gaps').hidden, 'ausgeblendet, wenn alle erledigt sind');
+});
+
+test('Neue Mail: Entwurf wird in der App gespeichert (nicht in Outlook), Zurück behält ihn, Verwerfen löscht ihn', opts, async () => {
+  const { box, calls, view } = await composeView({ prefill: { to: ['max@y.at'] } });
+  assert.equal(view.dirty(), false);
+  setText(box, 'Erster Satz');
+  assert.equal(view.dirty(), true, 'noch nicht gespeichert');
+  await tick(120);
+  assert.deepEqual(calls.find((c) => c[0] === 'appSave')[1], { id: '', subject: '', text: 'Erster Satz', to: ['max@y.at'], cc: [], bcc: [] });
+  assert.equal(view.dirty(), false);
+  assert.match(box.querySelector('.cp-saved').textContent, /in der App gespeichert/);
+  assert.ok(!calls.some((c) => c[0] === 'save'), 'nichts in Outlook');
+  setText(box, 'Erster Satz, zweiter Satz');
+  await tick(120);
+  assert.equal(calls.filter((c) => c[0] === 'appSave').at(-1)[1].id, 'A1', 'derselbe Entwurf wird fortgeschrieben');
+  [...box.querySelectorAll('.d-actions .btn')][0].click();
+  await tick(60);
+  assert.equal(calls.at(-1)[0], 'back');
+  assert.ok(!calls.some((c) => c[0] === 'appDelete'), 'Zurück behält den Entwurf');
+  globalThis.confirm = () => true;
+  const b2 = await composeView({ prefill: { to: ['max@y.at'], draftId: 'A7', text: 'x' } });
+  assert.match(b2.box.querySelector('.cp-saved').textContent, /aus der App geöffnet/);
+  cbtn(b2.box, 'Verwerfen').click();
+  await tick(60);
+  assert.deepEqual(b2.calls.slice(-2), [['appDelete', 'A7'], ['back']]);
+});
+
+test('Neue Mail: Ablegen in Outlook sendet Betreff, Text mit Signatur, An, CC, BCC; erneutes Ablegen ersetzt den alten Entwurf', opts, async () => {
   const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'Angebot', text: 'Hallo Max' } });
-  box.querySelector('.rf[data-label="CC"] .rf-input').dispatchEvent(new w.Event('focus'));
   const cc = box.querySelector('.rf[data-label="CC"] .rf-input');
   await typeInto(cc, 'an');
   key(cc, 'Enter');
@@ -554,43 +636,188 @@ test('Neue Mail: Ablegen sendet Betreff, Text mit Signatur, An, CC, BCC; erneute
   key(bcc, 'Enter');
   cbtn(box, 'In Outlook ablegen').click();
   await tick(30);
-  assert.deepEqual(calls[0], ['save', { subject: 'Angebot', text: 'Hallo Max\n\nBarni Kiss\nTel.: +43 1', to: ['max@y.at'], cc: ['anna@kunde.at'], bcc: ['chef@firma.at'], replaceId: '' }]);
+  const first = calls.find((c) => c[0] === 'save');
+  assert.deepEqual(first[1], { subject: 'Angebot', text: 'Hallo Max\n\nBarni Kiss\nTel.: +43 1', to: ['max@y.at'], cc: ['anna@kunde.at'], bcc: ['chef@firma.at'], replaceId: '' });
   assert.match(box.querySelector('.send-status').textContent, /In Outlook abgelegt/);
   box.querySelector('.cp-sig input').checked = false;
   cbtn(box, 'In Outlook ablegen').click();
   await tick(30);
-  assert.equal(calls[1][1].replaceId, 'D1', 'der erste Entwurf wird ersetzt');
-  assert.equal(calls[1][1].text, 'Hallo Max', 'ohne Signatur');
+  const second = calls.filter((c) => c[0] === 'save')[1];
+  assert.match(second[1].replaceId, /^D\d+$/, 'der erste Entwurf wird ersetzt');
+  assert.equal(second[1].text, 'Hallo Max', 'ohne Signatur');
 });
 
-test('Neue Mail: Senden legt ab, wartet mit Rückgängig, sendet den Entwurf und schließt die Ansicht; Rückgängig sendet nichts', opts, async () => {
-  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'Angebot', text: 'Hallo Max' } });
+test('Neue Mail: Senden legt ab, wartet mit Rückgängig (zum Ändern), sendet, löscht den App-Entwurf und schließt; Rückgängig sendet nichts', opts, async () => {
+  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'Angebot', text: 'Hallo Max', draftId: 'A1' } });
   cbtn(box, 'Senden').click();
   await tick(30);
-  assert.equal(calls[0][0], 'save');
-  assert.match(box.querySelector('.send-undo').textContent, /an max@y\.at gesendet/);
+  assert.equal(calls.find((c) => c[0] === 'save')[0], 'save');
+  assert.match(box.querySelector('.send-undo').textContent, /an max@y\.at gesendet.*noch etwas ändern/);
   assert.ok(cbtn(box, 'Senden').disabled);
   await tick(1500);
-  assert.deepEqual(calls.slice(1), [['send', { draftId: 'D1' }], ['back']]);
+  const tail = calls.map((c) => c[0]).slice(-3);
+  assert.deepEqual(tail, ['send', 'appDelete', 'back']);
+  assert.match(calls.find((c) => c[0] === 'send')[1].draftId, /^D\d+$/);
 
   const b2 = await composeView({ prefill: { to: ['max@y.at'], subject: 'S', text: 'T' } });
   cbtn(b2.box, 'Senden').click();
   await tick(30);
   [...b2.box.querySelectorAll('.send-undo .btn')].find((b) => b.textContent.includes('Rückgängig')).click();
   await tick(1400);
-  assert.deepEqual(b2.calls.map((c) => c[0]), ['save'], 'nichts gesendet, nicht geschlossen');
+  assert.ok(!b2.calls.some((c) => c[0] === 'send' || c[0] === 'back'), 'nichts gesendet, nicht geschlossen');
   assert.match(b2.box.querySelector('.send-status').textContent, /Senden abgebrochen/);
+  assert.ok(!b2.box.querySelector('.cp-text').disabled, 'danach lässt sich weiterschreiben');
 });
 
-test('Neue Mail: dirty() meldet Ungesendetes, Verwerfen löscht den abgelegten Entwurf', opts, async () => {
-  const empty = await composeView();
-  assert.equal(empty.view.dirty(), false);
-  const { box, calls, view } = await composeView({ prefill: { to: ['max@y.at'], subject: 'S', text: 'T' } });
-  assert.equal(view.dirty(), true);
-  cbtn(box, 'In Outlook ablegen').click();
+test('Neue Mail: Senden planen mit eigener Zeit übergibt Inhalt, Zeit und den App-Entwurf; danach schließt die Ansicht', opts, async () => {
+  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'Angebot', text: 'Hallo Max', draftId: 'A1' } });
+  box.querySelector('.sch button').click();
+  assert.ok(!box.querySelector('.sch-pop').hidden);
+  assert.ok(!/false/.test(box.querySelector('.sch-pop').textContent), 'kein verirrtes "false" (Neue Mail hat keine Done-Option)');
+  assert.equal(box.querySelector('.sch-done'), null, 'bei neuen Mails kein "Danach in Done"');
+  assert.match(box.querySelector('.sch-pop').textContent, /Heute 16:00|Morgen 08:00/);
+  const when = box.querySelector('.sch-when');
+  const target = new Date(Date.now() + 2 * 86400_000);
+  const pad = (n) => String(n).padStart(2, '0');
+  when.value = `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T09:30`;
+  [...box.querySelectorAll('.sch-custom .btn')][0].click();
+  await tick(60);
+  const call = calls.find((c) => c[0] === 'schedule');
+  assert.equal(call[1].kind, 'new');
+  assert.deepEqual([call[1].payload.subject, call[1].payload.to, call[1].fromDraftId], ['Angebot', ['max@y.at'], 'A1']);
+  assert.equal(new Date(call[1].sendAt).getHours(), 9);
+  assert.equal(calls.at(-1)[0], 'back');
+});
+
+// --- Spracheingabe
+class FakeRecognition {
+  static last = null;
+  constructor() {
+    FakeRecognition.last = this;
+    this.started = 0;
+  }
+  start() {
+    this.started += 1;
+  }
+  stop() {
+    this.stopped = true;
+    this.onend?.();
+  }
+  say(text, isFinal = true) {
+    this.onresult({ resultIndex: 0, results: [Object.assign([{ transcript: text }], { isFinal })] });
+  }
+}
+
+test('Diktieren: Knopf startet die Erkennung, fügt Gesagtes mit Satzzeichen an der Schreibmarke ein, Zwischenstand und Fehler stehen im Hinweis', opts, async () => {
+  const { createDictation, dictationSupported } = await importApp('components/dictation.js');
+  const win = { SpeechRecognition: FakeRecognition, Event: w.Event };
+  assert.equal(dictationSupported(win), true);
+  assert.equal(dictationSupported({}), false);
+  resetBody();
+  const ta = document.createElement('textarea');
+  const hint = document.createElement('span');
+  document.body.append(ta, hint);
+  let texts = 0;
+  const d = createDictation({ textarea: ta, hint, win, onText: () => (texts += 1) });
+  document.body.append(d.node);
+  assert.match(d.node.textContent, /Diktieren/);
+  d.node.click();
+  assert.match(d.node.textContent, /Stopp/);
+  assert.equal(d.node.getAttribute('aria-pressed'), 'true');
+  const rec = FakeRecognition.last;
+  assert.equal(rec.lang, 'de-AT');
+  assert.equal(rec.continuous, true);
+  rec.say('hallo anna komma', false);
+  assert.match(hint.textContent, /hallo anna komma/, 'Zwischenstand');
+  assert.equal(ta.value, '', 'Zwischenstand steht noch nicht im Text');
+  rec.say('hallo anna komma neuer absatz ich melde mich punkt');
+  assert.equal(ta.value, 'Hallo anna,\n\nich melde mich.');
+  assert.equal(texts, 1);
+  rec.say('danke dir');
+  assert.equal(ta.value, 'Hallo anna,\n\nich melde mich. Danke dir');
+  rec.onend(); // Chrome beendet nach einer Pause: es läuft weiter
+  assert.equal(rec.started, 2);
+  rec.onerror({ error: 'network' });
+  assert.match(hint.textContent, /nicht erreichbar.*Win\+H/);
+  assert.match(d.node.textContent, /Diktieren/, 'nach einem Fehler wieder bereit');
+});
+
+test('Diktieren: ohne Spracherkennung im Browser ist der Knopf gesperrt und nennt Alternativen', opts, async () => {
+  const { createDictation } = await importApp('components/dictation.js');
+  resetBody();
+  const d = createDictation({ textarea: document.createElement('textarea'), win: { Event: w.Event } });
+  assert.ok(d.node.disabled);
+  assert.match(d.node.title, /Chrome oder Edge|Win\+H/);
+});
+
+// --- Antwort: Werkzeuge, gemerkte Änderungen, Planen
+test('Antwort: Verbessern (mit Kontext der Mail), Rückgängig und gemerkte Änderungen am Entwurf', opts, async () => {
+  const improved = [];
+  const edits = [];
+  const extra = {
+    improve: async (o) => (improved.push(o), o.mode === 'gaps' ? { gaps: [] } : { text: 'Hallo Helga,\n\nTermin passt (korrigiert).' }),
+    saveEdit: async (t) => edits.push(t),
+    outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {},
+  };
+  const { box } = await render(draftData(reply()), { extra });
+  const imp = (name) => [...box.querySelectorAll('.draft .imp-bar .btn')].find((b) => b.textContent.trim() === name);
+  imp('Rechtschreibung').click();
   await tick(30);
-  globalThis.confirm = () => true;
-  cbtn(box, 'Verwerfen').click();
+  assert.equal(box.querySelector('.draft-text').value, 'Hallo Helga,\n\nTermin passt (korrigiert).');
+  assert.equal(improved[0].mode, 'spelling');
+  assert.equal(improved[0].text, 'Hallo Helga,\n\nTermin passt.');
+  assert.deepEqual(improved[0].to, ['helga@partner.at']);
+  assert.match(improved[0].context, /Hallo Barni/, 'der Text der Mail geht als Kontext mit (für "Lücken")');
+  imp('Vorige Version').click();
+  assert.equal(box.querySelector('.draft-text').value, 'Hallo Helga,\n\nTermin passt.');
+  const area = box.querySelector('.draft-text');
+  area.value = 'Hallo Helga, ich habe es geändert.';
+  area.dispatchEvent(new w.Event('input'));
+  await tick(1400);
+  assert.equal(edits.at(-1), 'Hallo Helga, ich habe es geändert.', 'eigene Änderungen werden gemerkt');
+  imp('Lücken suchen').click();
   await tick(30);
-  assert.deepEqual(calls.slice(1), [['discard', { draftId: 'D1' }], ['back']]);
+  assert.match(box.querySelector('.draft .imp-gaps').textContent, /Keine Lücken gefunden/);
+});
+
+test('Antwort: geänderter Text wird beim erneuten Öffnen wiederhergestellt', opts, async () => {
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Erzeugt', edited: 'Von dir geändert', previous: null }, reply: reply() }, { extra: { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  assert.equal(box.querySelector('.draft-text').value, 'Von dir geändert');
+});
+
+test('Antwort: Senden planen übergibt Text, Empfänger, done und Zeit; "Planung zurücknehmen" ruft unschedule', opts, async () => {
+  const scheduled = [];
+  const unscheduled = [];
+  const extra = { schedule: async (p, at) => (scheduled.push([p, at]), { id: 's-9', sendAt: at }), unschedule: async (id) => unscheduled.push(id), outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
+  const { box } = await render(draftData(reply()), { extra });
+  const planBtn = [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Senden planen'));
+  planBtn.click();
+  assert.ok(!box.querySelector('.sch-pop').hidden);
+  assert.ok(box.querySelector('.sch-done'), 'bei Antworten: danach in Done ablegen');
+  box.querySelector('.sch-done input').checked = true;
+  const when = box.querySelector('.sch-when');
+  const t = new Date(Date.now() + 3 * 86400_000);
+  const pad = (n) => String(n).padStart(2, '0');
+  when.value = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}T08:00`;
+  box.querySelector('.sch-custom .btn').click();
+  await tick(60);
+  assert.deepEqual([scheduled[0][0].text, scheduled[0][0].to, scheduled[0][0].done], ['Hallo Helga,\n\nTermin passt.', ['helga@partner.at'], true]);
+  assert.equal(new Date(scheduled[0][1]).getHours(), 8);
+  assert.match(box.querySelector('.send-status').textContent, /Geplant für .*danach in Done/);
+  [...box.querySelectorAll('.send-status .link')].find((b) => b.textContent.includes('zurücknehmen')).click();
+  await tick(30);
+  assert.deepEqual(unscheduled, ['s-9']);
+  assert.match(box.querySelector('.send-status').textContent, /zurückgenommen/);
+});
+
+test('Empfängerfeld: nach der Auswahl eines Vorschlags ist die halbe Eingabe weg und Senden nicht mehr gesperrt', opts, async () => {
+  const suggest = async (q) => (q.startsWith('ma') ? [{ name: 'Maria Berger', address: 'maria@kunde.at' }] : []);
+  const { box } = await render(draftData(reply({ only: { to: [], cc: [] } })), { extra: { suggest, outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  const input = box.querySelector('.rf[data-label="An"] .rf-input');
+  await typeInto(input, 'ma');
+  const send = [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden');
+  assert.match(send.title, /unvollständige Adresse/);
+  box.querySelector('.rf-item').dispatchEvent(new w.MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+  assert.equal(input.value, '');
+  assert.ok(!send.disabled, 'Senden ist frei');
 });

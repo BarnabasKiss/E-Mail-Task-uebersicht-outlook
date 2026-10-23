@@ -72,26 +72,48 @@ Die Sektion **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, 
 
 ## Antwort aus der App: Entwurf ablegen und senden
 Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewertung keine nötig ist (dann ohne automatischen Entwurf, du schreibst selbst oder klickst „Jetzt erzeugen“). In Done gibt es sie nicht.
+- **Über dem Text** stehen die [Werkzeuge](#werkzeuge-für-den-text-rechtschreibung-struktur-lücken-diktieren) (Rechtschreibung, Struktur, Lücken, Diktieren).
 - **An, CC und BCC** sind Felder mit Adressen als Chips. Vorbelegt ist „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen).
   BCC steht hinter „+ BCC“. Beim Tippen schlägt das [Adressbuch](#kontakte-das-adressbuch) Personen vor (Pfeiltasten und Enter, oder Klick); Enter, Komma, Semikolon oder Leerzeichen übernehmen eine getippte Adresse,
   mehrere eingefügte Adressen („Name <a@x.at>, b@y.at“) werden sofort zerlegt, die Rücktaste im leeren Feld entfernt die letzte. Eine Adresse steht nur in einem Feld (An vor CC vor BCC).
 - **Meine Signatur anhängen:** erscheint, sobald im Verlauf eine eigene Signatur erkannt wurde, und hängt sie als Text an (Formatierung und Logo gehen dabei verloren).
 - **In Outlook ablegen** legt die Antwort als Entwurf in Outlook an (mit dem zitierten Verlauf wie bei einer normalen Antwort). Gesendet wird nichts. Danach stehen dort
   „In Outlook öffnen“ und „Entwurf dort löschen“; legst du erneut ab, ersetzt der neue Entwurf den alten.
-- **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **10 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook). Die Mail **bleibt danach offen**
-  (auch die automatische Antworterkennung legt sie nicht von sich aus ab); unter dem Entwurf steht „Gesendet … In Done ablegen“. **Senden & Done** sendet und legt die Mail gleich in Done ab.
+- **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **30 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook, du kannst etwas ändern). Die Mail **bleibt danach offen**
+  (auch die automatische Antworterkennung legt sie nicht von sich aus ab); unter dem Entwurf steht „Gesendet … In Done ablegen“. **Senden & Done** sendet und legt die Mail gleich in Done ab. **Senden planen** sendet später (siehe [unten](#senden-planen-entwürfe-und-geplantes)).
   Die App lernt aus dem gesendeten Text wie sonst auch.
 - **Gesperrt** sind „Senden“ bei offenem `[BITTE ERGÄNZEN …]`, ohne Empfänger, bei leerem Text und bei einer halben Eingabe in einem Empfängerfeld (der Tooltip nennt den Grund). Anhänge lassen sich über die App nicht mitschicken.
 - Dafür braucht die n8n-Verbindung zu Outlook die Rechte *Mail.ReadWrite* und *Mail.Send* (siehe [n8n/README.md](../n8n/README.md)).
 
 ## Neue Mail schreiben
-Der Knopf **Neue Mail** oben rechts (oder **Neue Mail** im Absender-Profil, dort mit der Adresse vorbelegt) öffnet die Schreibansicht anstelle der Mail:
-- **An, CC, BCC** wie bei der Antwort (Chips, Vorschläge aus dem [Adressbuch](#kontakte-das-adressbuch)), dazu **Betreff** und **Text**.
+Der Knopf **Neue Mail** oben rechts (oder **Neue Mail** im Absender-Profil, dort mit der Adresse vorbelegt) öffnet die Schreibansicht anstelle der Mail. Sie ist wie die Antwort aufgebaut:
+1. **Text** oben, darüber die [Werkzeuge](#werkzeuge-für-den-text-rechtschreibung-struktur-lücken-diktieren).
+2. **Betreff** darunter. Der Knopf **Betreff vorschlagen** lässt Claude aus dem Text einen Betreff machen (geht erst mit Text, ein weiterer Klick macht einen neuen), du kannst ihn danach beliebig ändern.
+3. **An, CC, BCC** wie bei der Antwort (Chips, Vorschläge aus dem [Adressbuch](#kontakte-das-adressbuch)); darunter die Knöpfe.
 - **Meine Signatur anhängen:** erscheint, sobald die App deine Signatur in einem Verlauf erkannt hat (sie merkt sie sich); „ansehen“ zeigt den Text. Anhänge lassen sich nicht mitsenden.
-- **In Outlook ablegen** legt die Mail als Entwurf an (erneutes Ablegen ersetzt ihn, „In Outlook öffnen“ führt dorthin). **Senden** legt sie ab und sendet nach 10 Sekunden mit **Rückgängig**; danach schließt die Ansicht.
-  Gesendet wird nur ein Entwurf, den die App selbst abgelegt hat. **Verwerfen** (oder **Zurück**) löscht einen abgelegten Entwurf.
-- Gesperrt sind beide Knöpfe ohne Empfänger, Betreff oder Text und mit einer halben Adresse in einem Feld; der Tooltip nennt den Grund.
-- Wer die Ansicht mit Inhalt verlässt (andere Mail, Profil, Kontakte …), wird gefragt. Zum Ausprobieren eignet sich die eigene Adresse bei An: die Mail landet nur bei dir.
+- **Senden** legt die Mail als Entwurf in Outlook ab und sendet nach **30 Sekunden**; bis dahin steht ein **Rückgängig** da, danach kannst du weiterschreiben. Gesendet wird nur ein Entwurf, den die App selbst angelegt hat.
+- **Senden planen** sendet zur gewählten Zeit (siehe unten). **In Outlook ablegen** legt einen Entwurf in Outlook an, falls du dort weiterarbeiten willst.
+- **Entwurf:** Was du schreibst, speichert die App laufend **in der App** (nicht in Outlook); „Zurück“ und jedes Verlassen behalten ihn. Du findest ihn unter **Entwürfe**. **Verwerfen** löscht ihn (und einen abgelegten Outlook-Entwurf).
+- Gesperrt sind Senden, Planen und Ablegen ohne Text, Betreff oder Empfänger und mit einer halben Adresse in einem Feld; der Tooltip nennt den Grund. Zum Ausprobieren eignet sich die eigene Adresse bei An.
+
+## Werkzeuge für den Text: Rechtschreibung, Struktur, Lücken, Diktieren
+Über dem Text jeder neuen Mail und jeder Antwort:
+- **Rechtschreibung** korrigiert nur Rechtschreibung, Grammatik und Zeichensetzung; Wortwahl, Ton, Anrede und Aufbau bleiben.
+- **Rechtschreibung & Struktur** macht zusätzlich Absätze, Reihenfolge und Sätze klarer, ohne neue Fakten, Zusagen oder Termine hinzuzufügen und ohne die Ansprache (Du oder Sie) zu ändern.
+- **Lücken suchen** ändert den Text nicht, sondern listet, was fehlen könnte: eine Bitte ohne Frist, ein genannter Anhang, der nicht dabei ist, ein Termin ohne Datum, eine unbeantwortete Frage der Mail (bei Antworten kennt Claude die Mail), ein fehlender nächster Schritt. Jeder Hinweis lässt sich mit dem × erledigen.
+- **Vorige Version** (erscheint nach einer Änderung) holt den Text von vorher zurück, bis zu zehn Schritte.
+- **Diktieren** schreibt, was du sagst, an die Schreibmarke. Befehle: „Komma“, „Punkt“, „Fragezeichen“, „Ausrufezeichen“, „Doppelpunkt“, „neue Zeile“, „neuer Absatz“, „Klammer auf“, „Klammer zu“. Danach helfen die Werkzeuge beim Aufräumen.
+  Die Spracherkennung kommt vom Browser: In Chrome und Edge geht sie (das Audio läuft dabei über den Anbieter, siehe [Datenschutz](datenschutz.md#textwerkzeuge-und-spracheingabe)), in Brave und Firefox fehlt sie oder ist abgeschaltet;
+  der Knopf sagt dann, was geht. Als Ersatz taugt das Diktat des Betriebssystems (Windows: Win+H).
+- Claude sieht den Text wie überall nur pseudonymisiert. Verliert Claude beim Überarbeiten einen Platzhalter (also eine Angabe wie Name oder Nummer), verwirft die App den Vorschlag und lässt deinen Text stehen.
+
+## Senden planen, Entwürfe und Geplantes
+- **Senden planen** gibt es bei neuen Mails und bei Antworten: heute 16:00, morgen 08:00, Montag 08:00 oder eine eigene Zeit. Bei Antworten gibt es dazu „Danach in Done ablegen“.
+- Eine geplante Mail liegt bis zur Sendezeit **nur in der App**. Zur Sendezeit legt die App sie in Outlook als Entwurf an und sendet sie sofort; so bleibt nichts halb fertig in Outlook liegen, und die Mail lässt sich bis zuletzt ändern oder abbrechen.
+  **Die App muss zur Sendezeit laufen** (sie startet mit dem Rechner). War sie aus, geht die Mail beim nächsten Start sofort raus. Schlägt das Senden fehl, versucht es die App nach einer Minute bis zu dreimal und zeigt dann den Fehler.
+- Der Knopf **Entwürfe** oben zeigt eine Zahl (Entwürfe plus Geplantes, rot bei einem Fehler) und öffnet die Übersicht. **Geplant:** „Jetzt senden“, „Bearbeiten“ (hebt die Planung bei einer neuen Mail auf und öffnet sie als Entwurf) und der Papierkorb (abbrechen).
+  **Entwürfe:** ein Klick öffnet den Entwurf zum Weiterschreiben, der Papierkorb löscht ihn.
+- Bei **Antworten** bleibt das, was du im Feld änderst, erhalten (auch nach dem Neuladen), ohne den erzeugten Entwurf zu überschreiben, damit das Lernen weiter beides vergleichen kann. „Neu erzeugen“ ersetzt deine Änderungen.
 
 ## Kontakte: das Adressbuch
 Der Link **Kontakte** oben rechts öffnet das Adressbuch der App. Es liefert die Vorschläge bei An, CC und BCC und liegt nur auf diesem Rechner (`address-book.json` im Datenordner).

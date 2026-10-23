@@ -9,6 +9,8 @@ import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
 import { renderContacts } from './components/contacts-view.js';
 import { renderCompose } from './components/compose-view.js';
+import { renderOutbox } from './components/outbox-view.js';
+import { icon } from './icons.js';
 import { readHash, writeHash } from './hash.js';
 import { createSearch } from './search-controller.js';
 import { createAttentionSignal, setupNotifyButton } from './attention-signal.js';
@@ -19,7 +21,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, compose: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -33,7 +35,20 @@ const search = createSearch({
     syncHash();
   },
 });
-const statusBar = createStatusBar({ chip: $('status'), rulesLink: $('rules-link') });
+// Symbole an den Knöpfen der Kopfzeile (data-icon)
+document.querySelectorAll('[data-icon]').forEach((b) => b.prepend(icon(b.dataset.icon, 15)));
+
+// Zähler am Knopf "Entwürfe": Entwürfe plus geplante Mails, rot bei Fehlern
+function showOutboxCount(s) {
+  const o = s.outbox || { drafts: 0, scheduled: 0, failed: 0 };
+  const badge = $('outbox-badge');
+  const total = o.drafts + o.scheduled;
+  badge.hidden = total === 0;
+  badge.textContent = String(total);
+  badge.classList.toggle('bad', o.failed > 0);
+  badge.title = `${o.drafts} Entwürfe, ${o.scheduled} geplant${o.failed ? `, ${o.failed} mit Fehler` : ''}`;
+}
+const statusBar = createStatusBar({ chip: $('status'), rulesLink: $('rules-link'), onStatus: showOutboxCount });
 const attention = createAttentionSignal({ onOpen: (id) => showItem(id) });
 
 const syncHash = () => writeHash({ selectedId: state.selectedId, view: state.view, query: search.query, filters: search.filters, profile: state.profile });
@@ -104,7 +119,7 @@ async function loadList(fn = api.proposals) {
 
 function clearDetail() {
   stopLearnPolling();
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   state.selectedId = null;
   state.profile = null;
   state.controller = null;
@@ -262,10 +277,10 @@ function markRange(id) {
   renderLeft();
 }
 
-// --- Neue Mail: Ansicht statt Detail. Wer sie verlässt, ohne zu senden oder abzulegen, wird gefragt.
+// --- Neue Mail: Ansicht statt Detail. Der Entwurf wird laufend in der App gespeichert; beim Verlassen wird der letzte Stand noch gesichert.
 function leaveCompose() {
   if (!state.compose) return true;
-  if (state.compose.view.dirty() && !confirm('Die neue Mail ist noch nicht gesendet. Verlassen und verwerfen?')) return false;
+  state.compose.view.flush?.();
   state.compose = null;
   return true;
 }
@@ -277,7 +292,7 @@ async function openCompose(prefill = {}) {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   const info = await api.composeInfo().catch(() => ({ signature: '' }));
   const handle = { view: null };
   state.compose = handle;
@@ -285,6 +300,8 @@ async function openCompose(prefill = {}) {
     signature: info.signature,
     prefill,
     suggest: (q, exclude) => api.suggest(q, exclude),
+    appSave: (payload) => api.action('mail-draft-save', payload),
+    appDelete: (id) => api.action('mail-draft-delete', { id }),
     save: (payload) => api.action('compose-draft', payload),
     send: async ({ draftId }) => {
       try {
@@ -296,12 +313,76 @@ async function openCompose(prefill = {}) {
       }
     },
     discard: ({ draftId }) => api.action('compose-discard', { draftId }),
+    schedule: (o) => api.action('schedule', o),
+    improve: (o) => api.action('text-improve', o),
+    makeSubject: (o) => api.action('text-subject', o),
     back: () => {
       state.compose = null;
+      statusBar.update();
       if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
       else clearDetail();
     },
   });
+}
+
+// --- Entwürfe und geplante Mails (Ansicht statt Detail)
+async function showOutbox(note = state.outbox?.note || '') {
+  const o = state.outbox;
+  if (!o) return;
+  let data;
+  try {
+    data = await api.outbox();
+  } catch (e) {
+    toast(e.message, { error: true });
+    return closeOutbox();
+  }
+  if (state.outbox !== o) return;
+  o.note = note;
+  statusBar.update();
+  const run = async (promise, text) => {
+    try {
+      const r = await promise;
+      await showOutbox(typeof text === 'function' ? text(r) : text);
+    } catch (e) {
+      toast(e.message, { error: true });
+      await showOutbox('');
+    }
+  };
+  renderOutbox($('detail'), data, {
+    back: closeOutbox,
+    openDraft: (d) => openCompose({ ...d, draftId: d.id }),
+    deleteDraft: (id) => (confirm('Diesen Entwurf löschen?') ? run(api.action('mail-draft-delete', { id }), 'Entwurf gelöscht.') : null),
+    cancel: (id) => (confirm('Die Planung abbrechen? Die Mail wird dann nicht gesendet.') ? run(api.action('schedule-cancel', { id }), 'Planung abgebrochen.') : null),
+    toDraft: async (id) => {
+      try {
+        const r = await api.action('schedule-cancel', { id, toDraft: true });
+        const fresh = await api.outbox();
+        const draft = fresh.drafts.find((d) => d.id === r.draftId);
+        if (draft) openCompose({ ...draft, draftId: draft.id });
+      } catch (e) {
+        toast(e.message, { error: true });
+      }
+    },
+    sendNow: (id) => run(api.action('schedule-now', { id }), 'Gesendet.'),
+  }, note);
+}
+
+function openOutbox() {
+  leaveCompose();
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
+  state.contacts = null;
+  state.outbox = { note: '' };
+  showOutbox('');
+}
+
+function closeOutbox() {
+  state.outbox = null;
+  if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+  else clearDetail();
 }
 
 // --- Detail
@@ -310,7 +391,7 @@ async function select(id, { keepView = true } = {}) {
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
@@ -350,6 +431,10 @@ async function select(id, { keepView = true } = {}) {
         select(id);
       },
       thread: (before) => api.thread(id, { before }),
+      schedule: (payload, sendAt) => api.action('schedule', { kind: 'reply', payload: { id, ...payload }, sendAt }),
+      unschedule: (scheduleId) => api.action('schedule-cancel', { id: scheduleId }),
+      improve: (o) => api.action('text-improve', o),
+      saveEdit: (text) => api.action('reply-edit', { id, text }),
       suggest: (q, exclude) => api.suggest(q, exclude),
       outlookDraft: (payload) => api.action('outlook-draft', { id, ...payload }),
       outlookDraftDelete: () => api.action('outlook-draft-delete', { id }),
@@ -404,7 +489,7 @@ async function refreshDraft(id) {
 async function openProfile(address) {
   if (!address || !leaveCompose()) return;
   state.learning = false;
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   stopLearnPolling();
   state.profile = String(address).toLowerCase();
   state.profileTab = 'mails';
@@ -487,7 +572,7 @@ async function showLearn() {
 function openLearn() {
   if (!leaveCompose()) return;
   state.profile = null;
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
@@ -554,13 +639,14 @@ function openContacts() {
 }
 
 function closeContacts() {
-  state.contacts = null;
+  state.contacts = state.outbox = null;
   if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
   else clearDetail();
 }
 
 // --- Kopfzeile
 $('compose-link').addEventListener('click', () => openCompose());
+$('outbox-link').addEventListener('click', openOutbox);
 $('contacts-link').addEventListener('click', (e) => {
   e.preventDefault();
   openContacts();

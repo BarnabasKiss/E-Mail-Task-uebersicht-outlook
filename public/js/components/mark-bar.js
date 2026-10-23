@@ -23,6 +23,7 @@ export function renderMarkBar(container, { count, mode, allDone }, on, now = new
     return container;
   }
   container.replaceChildren(
+    ...[
     el('strong', { class: 'mark-count' }, `${count} markiert`),
     button(allDone ? 'Zurückholen' : 'Done', on.done, { iconName: allDone ? 'undo' : 'check', title: allDone ? 'Alle markierten zurück nach Offen holen' : 'Alle markierten in Done ablegen' }),
     !allDone && button('Später', on.snooze, { iconName: 'clock', title: 'Alle markierten zurückstellen' }),
@@ -30,6 +31,7 @@ export function renderMarkBar(container, { count, mode, allDone }, on, now = new
     el('span', { class: 'spacer' }),
     button('Alle', on.all, { title: 'Alle Mails der Liste markieren' }),
     iconButton('x', 'Markierung aufheben', on.cancel),
+    ].filter(Boolean), // replaceChildren würde ein false als Text "false" einfügen
   );
   return container;
 }

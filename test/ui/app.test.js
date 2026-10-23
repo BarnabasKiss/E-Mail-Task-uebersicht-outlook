@@ -18,6 +18,14 @@ const db = { items: [mk(1, { dringlichkeit: 'jetzt', rolle: 'direkt' }), mk(2, {
 const requests = [];
 const contactNotes = [{ id: 'n1', text: 'Antwortet knapp.', source: 'gelernt', reviewed: false, scope: 'person' }];
 let contactRules = [];
+const outboxData = {
+  drafts: [{ id: 'd-1', subject: 'Angebot Oktober', text: 'Hallo Max, anbei das Angebot.', to: ['max@y.at'], cc: [], bcc: [], updatedAt: '2026-10-22T08:00:00Z' }],
+  scheduled: [
+    { id: 's-1', kind: 'new', payload: { subject: 'Erinnerung', text: 'x', to: ['a@x.at'], cc: [], bcc: [] }, sendAt: '2026-10-30T08:00:00Z', status: 'geplant', attempts: 0, error: '' },
+    { id: 's-2', kind: 'reply', betreff: 'Rechnung prüfen', payload: { id: 1, text: 'x', to: ['h@y.at'], cc: [], bcc: [], done: true }, sendAt: '2026-10-29T08:00:00Z', status: 'fehler', attempts: 3, error: 'Outlook-Fehler' },
+  ],
+};
+let outboxCall = null;
 let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
 let bookCall = null;
 let learnStatus = { running: false, phase: 'idle', read: 0, usable: 0, people: 0, error: null, result: null };
@@ -31,7 +39,8 @@ globalThis.fetch = async (url, init = {}) => {
   const all = [...db.items, ...db.archive];
   const byId = (id) => all.find((m) => String(m.id) === String(id));
   if (p === '/api/proposals' || p === '/api/refresh') return json({ items: db.items, archive: db.archive, hidden: 0, ownAddress: 'barni@firma.at' });
-  if (p === '/api/status') return json({ fetchedAt: new Date().toISOString(), error: null, claudeBusy: false, rulesFile: '/x/Mail-Regeln.md' });
+  if (p === '/api/status') return json({ fetchedAt: new Date().toISOString(), error: null, claudeBusy: false, rulesFile: '/x/Mail-Regeln.md', outbox: { drafts: outboxData.drafts.length, scheduled: outboxData.scheduled.length, failed: outboxData.scheduled.filter((x) => x.status === 'fehler').length } });
+  if (p === '/api/outbox') return json(outboxData);
   if (p === '/api/search') return json({ hits: u.searchParams.get('q') === 'rechnung' ? { M3: [{ kind: 'doc', name: 'Rechnung.pdf', snippet: '…Rechnung 4711…' }] } : {}, indexed: 1, total: 4 });
   let m = /^\/api\/proposals\/(\d+)\/attachments$/.exec(p);
   if (m) return json({ items: [], readByAi: true, canPreview: false });
@@ -59,6 +68,12 @@ globalThis.fetch = async (url, init = {}) => {
   m = /^\/api\/actions\/(\w[\w-]*)$/.exec(p);
   if (m && method === 'POST') {
     const { id, ...rest } = JSON.parse(init.body);
+    if (['mail-draft-save', 'mail-draft-delete', 'schedule-cancel', 'schedule-now'].includes(m[1])) {
+      outboxCall = { name: m[1], ...rest, id };
+      if (m[1] === 'mail-draft-delete') outboxData.drafts = outboxData.drafts.filter((d) => d.id !== id);
+      if (m[1] === 'schedule-cancel') outboxData.scheduled = outboxData.scheduled.filter((x) => x.id !== id);
+      return json(m[1] === 'mail-draft-save' ? { id: id || 'A1', updatedAt: new Date().toISOString() } : { ok: true });
+    }
     if (m[1] === 'book') {
       bookCall = { id, ...rest };
       if (rest.op === 'add') book.push({ name: rest.name, address: rest.address, company: rest.company || '', sources: ['manuell'], count: 0, sentCount: 0, last: null });
@@ -445,7 +460,7 @@ test('Kontakte: Ansicht mit Adressbuch, Anlegen, Löschen und Outlook-Import (le
   assert.ok(!document.querySelector('#detail .contacts'));
 });
 
-test('Neue Mail: Knopf in der Kopfzeile öffnet die Ansicht, beim Verlassen mit Inhalt kommt eine Rückfrage', opts, async () => {
+test('Neue Mail: Knopf in der Kopfzeile öffnet die Ansicht, der Entwurf wird beim Verlassen in der App gesichert (ohne Rückfrage)', opts, async () => {
   $('compose-link').click();
   await tick(60);
   assert.equal(document.querySelector('#detail .compose h2').textContent, 'Neue Mail');
@@ -453,18 +468,47 @@ test('Neue Mail: Knopf in der Kopfzeile öffnet die Ansicht, beim Verlassen mit 
   subject.value = 'Angebot';
   subject.dispatchEvent(new w.Event('input'));
   let asked = 0;
-  globalThis.confirm = () => (asked += 1, false);
+  globalThis.confirm = () => (asked += 1, true);
+  outboxCall = null;
   document.querySelector('#list .mail-row')?.click();
-  await tick(60);
-  assert.equal(asked, 1, 'Rückfrage beim Verlassen');
-  assert.ok(document.querySelector('#detail .compose'), 'geblieben');
+  await tick(120);
+  assert.equal(asked, 0, 'keine Rückfrage: der Entwurf liegt in der App');
+  assert.ok(!document.querySelector('#detail .compose'), 'verlassen');
+  assert.equal(outboxCall?.name, 'mail-draft-save', 'der letzte Stand wurde gesichert');
+  assert.equal(outboxCall.subject, 'Angebot');
+});
+
+test('Kopfzeile: Symbole an den Knöpfen und Zähler am Knopf "Entwürfe" (rot bei Fehlern)', opts, async () => {
+  for (const id of ['compose-link', 'outbox-link', 'contacts-link', 'learn-link', 'rules-link', 'refresh']) assert.ok($(id).querySelector('svg.icon, svg'), `${id} hat ein Symbol`);
+  await tick(5200); // die Statusabfrage läuft alle 5 Sekunden
+  const badge = $('outbox-badge');
+  assert.equal(badge.hidden, false);
+  assert.equal(badge.textContent, '3');
+  assert.ok(badge.classList.contains('bad'), 'ein geplanter Versand ist fehlgeschlagen');
+});
+
+test('Entwürfe und Geplantes: Liste, Entwurf öffnen, löschen, Planung abbrechen, sofort senden', opts, async () => {
   globalThis.confirm = () => true;
-  document.querySelector('#list .mail-row')?.click();
+  $('outbox-link').click();
   await tick(80);
-  assert.ok(!document.querySelector('#detail .compose'), 'nach "Ja" verlassen');
-  $('compose-link').click();
+  assert.equal(document.querySelector('#detail .outbox h2').textContent, 'Entwürfe und Geplantes');
+  const rows = [...document.querySelectorAll('#detail .ob-row')];
+  assert.equal(rows.length, 3);
+  assert.match(rows[0].textContent, /Erinnerung|Rechnung prüfen/);
+  assert.ok(document.querySelector('#detail .ob-row.failed'), 'Fehler hervorgehoben');
+  assert.match(document.querySelector('#detail .ob-error').textContent, /Outlook-Fehler/);
+  [...document.querySelectorAll('#detail .ob-actions')][0].querySelector('.btn').click();
+  await tick(80);
+  assert.equal(outboxCall.name, 'schedule-now');
+  document.querySelector('#detail .ob-actions .icon-btn.danger').click();
+  await tick(80);
+  assert.equal(outboxCall.name, 'schedule-cancel');
+  assert.match(document.querySelector('#detail .ob-note').textContent, /Planung abgebrochen/);
+  [...document.querySelectorAll('#detail .ob-row')].pop().querySelector('.icon-btn.danger').click();
+  await tick(80);
+  assert.equal(outboxCall.name, 'mail-draft-delete');
+  assert.equal(document.querySelectorAll('#detail .ob-row').length, 1);
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
   await tick(60);
-  document.querySelector('#detail .d-actions .btn').click(); // Zurück ohne Inhalt: keine Rückfrage
-  await tick(60);
-  assert.ok(!document.querySelector('#detail .compose'));
+  assert.ok(!document.querySelector('#detail .outbox'));
 });

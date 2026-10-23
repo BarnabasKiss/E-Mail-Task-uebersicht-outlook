@@ -618,3 +618,54 @@ a.att:hover { background: var(--hover); }
 .cp-sig details { color: var(--muted); }
 .cp-sig summary { cursor: pointer; }
 .cp-sig pre { margin: 4px 0 0; white-space: pre-wrap; font: inherit; padding: 6px 8px; border-left: 2px solid var(--border); }
+
+/* Kopfzeile: Symbole und Zähler */
+.topbar .btn .icon { flex: none; }
+.nav-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-left: 5px; padding: 0 5px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+.nav-badge.bad { background: var(--jetzt); }
+.nav-badge[hidden] { display: none; }
+
+/* Neue Mail und Antwort: Werkzeuge, Betreff, Planen */
+.imp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.imp-hint { flex: 1 1 200px; font-size: 12px; color: var(--muted); min-width: 0; }
+.dict-btn.listening { background: color-mix(in srgb, var(--jetzt) 14%, var(--panel)); border-color: var(--jetzt); color: var(--jetzt); animation: dict-pulse 1.4s ease-in-out infinite; }
+@keyframes dict-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--jetzt) 20%, transparent); } }
+.imp-gaps { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--heute) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--heute) 30%, var(--border)); font-size: 12.5px; }
+.imp-gaps[hidden] { display: none; }
+.imp-gaps-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.imp-gaps-head .link { margin-left: auto; }
+.imp-gaps ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+.imp-gaps li { display: flex; align-items: flex-start; gap: 8px; }
+.imp-gaps li > span { flex: 1; }
+.imp-ok { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ok); }
+.imp-ok .link { margin-left: auto; }
+.cp-subject-row { grid-template-columns: 52px minmax(0, 1fr) auto; }
+.cp-saved { font-size: 12px; color: var(--faint); }
+.sch { position: relative; display: inline-flex; }
+.sch-pop { position: absolute; z-index: 40; bottom: calc(100% + 6px); left: 0; width: 280px; padding: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); display: grid; gap: 2px; }
+.sch-pop[hidden] { display: none; }
+.sch-pop .menu-item { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 7px 9px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.sch-pop .menu-item:hover { background: var(--hover); }
+.sch-pop .menu-item small { color: var(--faint); }
+.sch-custom { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; padding: 6px 9px; border-top: 1px solid var(--border); margin-top: 4px; }
+.sch-custom label { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+.sch-when { height: 30px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; min-width: 0; }
+.sch-done { display: flex; align-items: center; gap: 6px; padding: 4px 9px; font-size: 12.5px; }
+.sch-pop .hint { margin: 2px 9px 4px; }
+
+/* Entwürfe und Geplantes */
+.outbox { display: grid; gap: 12px; align-content: start; }
+.outbox .card { padding: 12px 14px; }
+.ob-note { color: var(--accent); margin: 0; }
+.ob-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.ob-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.ob-row:last-child { border-bottom: 0; }
+.ob-main { display: grid; gap: 1px; min-width: 0; text-align: left; }
+.ob-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-open { all: unset; display: grid; gap: 1px; min-width: 0; cursor: pointer; }
+.ob-open:hover strong { text-decoration: underline; }
+.ob-sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-when { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--faint); white-space: nowrap; }
+.ob-actions { display: inline-flex; gap: 5px; }
+.ob-error { grid-column: 1 / -1; font-size: 12px; color: var(--jetzt); }
+.ob-row.failed { background: color-mix(in srgb, var(--jetzt) 5%, transparent); }

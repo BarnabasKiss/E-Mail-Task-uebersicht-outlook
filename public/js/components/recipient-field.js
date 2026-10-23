@@ -76,10 +76,9 @@ export function createRecipientField({ label, values = [], names = {}, suggest, 
     if (!text.trim()) return;
     const found = parseAddresses(text);
     if (!found.length) return;
-    add(found);
     // was keine Adresse war (z. B. ein halbes Wort), bleibt stehen
-    const left = text.replace(/[^<>,;]*<[^<>]+>/g, ' ').split(/[\s,;]+/).filter((t) => t && !EMAIL.test(t)).join(' ');
-    input.value = left;
+    input.value = text.replace(/[^<>,;]*<[^<>]+>/g, ' ').split(/[\s,;]+/).filter((t) => t && !EMAIL.test(t)).join(' ');
+    add(found);
     close();
   }
 
@@ -105,8 +104,8 @@ export function createRecipientField({ label, values = [], names = {}, suggest, 
   }
 
   function pick(it) {
+    input.value = ''; // zuerst leeren: add() meldet die Änderung, und eine halbe Eingabe darf dann nicht mehr im Feld stehen
     add([{ name: it.name, address: it.address }]);
-    input.value = '';
     close();
     input.focus();
   }

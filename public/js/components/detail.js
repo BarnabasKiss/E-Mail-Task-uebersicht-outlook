@@ -54,6 +54,10 @@ export function renderDetail(container, data, ctx) {
         onOutlookDraftDelete: handlers.outlookDraftDelete,
         onSend: handlers.outlookSend,
         onArchive: () => handlers.archive({ ignoreSender: false }),
+        onSchedule: handlers.schedule,
+        onUnschedule: handlers.unschedule,
+        onImprove: handlers.improve ? (o) => handlers.improve({ ...o, context: mail.text }) : null,
+        onSaveEdit: handlers.saveEdit,
         undoSeconds: handlers.undoSeconds,
       })
     : null;

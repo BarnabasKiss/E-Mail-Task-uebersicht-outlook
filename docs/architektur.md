@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 server.js               Startpunkt: baut alle Module zusammen, startet Hintergrundjobs und den lokalen Webserver
 config.example.json     Vorlage der Einstellungen (config.json ist nicht im Repo)
-actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, compose (compose-draft, compose-send, compose-discard), bulk (Sammelaktion)
+actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, compose (compose-draft, compose-send, compose-discard), text-tools (text-improve, text-subject), outbox (mail-draft-save, mail-draft-delete, schedule, schedule-cancel, schedule-now, reply-edit), bulk (Sammelaktion)
 lib/
   Schnittstelle
     api.js              Routen unter /api/ (nur Routing), statische Dateien
@@ -50,6 +50,9 @@ lib/
     html.js             HTML zu Text, Marken für eingebettete Bilder, zitierte Verläufe abschneiden
     test-mail.js        Testmails (mail_id ab TEST-)
   Verlauf und Antworten
+    outbox.js           App-Entwürfe neuer Mails und geplante Mails (Job zur Sendezeit)
+    text-tools.js       Rechtschreibung, Struktur, Lücken, Betreff über claude -p (pseudonymisiert)
+    reply-sent.js       was nach dem Senden einer Antwort zu tun ist
     address-book.js     Adressbuch für die Empfängerfelder (Vorschläge, Import, eigene Datei address-book.json)
     address-job.js      Hintergrundjob: Absender und Empfänger der Mails ins Adressbuch
     thread.js           Verlauf einer Konversation (n8n getThread), je Nachricht ohne Zitat und mit getrennter Signatur
@@ -74,8 +77,9 @@ public/                 Oberfläche
     marking.js, shortcuts.js    markierte Mails (Sammelaktionen) und Tastatur
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
                         mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
-                        send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail);
-                        countdown.js (10 Sekunden vor dem Senden)
+                        send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail), outbox-view (Entwürfe, Geplantes),
+                        improve-bar (Werkzeuge), dictation (Spracheingabe), schedule-menu (Senden planen);
+                        countdown.js (30 Sekunden vor dem Senden), dictation-text.js (Sprachbefehle)
 test/                   Tests (node --test); test/ui/ = Oberfläche im simulierten Browser
 n8n/                    Nachbauanleitung, Code der Code-Nodes, Prompt
 docs/                   diese Doku
@@ -103,10 +107,11 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/ai-view` | anonymisierte Vorschau (Mailtext, Bilder, Anhänge, Prüfergebnis) |
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
-| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard` |
+| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard`, `text-improve`, `text-subject`, `mail-draft-save`, `mail-draft-delete`, `schedule`, `schedule-cancel`, `schedule-now`, `reply-edit` |
 | `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
+| `GET /outbox` | App-Entwürfe, geplante Mails und Zähler |
 | `GET /compose-info` | gemerkte Signatur für neue Mails |
 | `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |
 | `GET /address-book?q=&source=&limit=` | Liste und Zahlen für die Kontaktverwaltung (ändern: Aktion `book`) |
