@@ -307,12 +307,26 @@ test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt si
   assert.match(b2.querySelector('.thread .hint').textContent, /nur diese Nachricht/);
 });
 
-test('Aufbau in einer Spalte: Person, Anhänge, Aufgabe, Zusammenfassung, Verlauf, Antwortentwurf', opts, async () => {
+test('Aufbau in drei Zonen: Kopf (Person, Anhänge) | Verstehen (Zusammenfassung, Aufgabe, Verlauf) | Antwortentwurf', opts, async () => {
   const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo' } });
   const article = box.querySelector('article.detail');
   assert.equal(box.querySelector('.d-main, .d-left, .d-right'), null, 'keine zweite Spalte');
-  const labels = [...article.children].map((c) => c.getAttribute('aria-label')).filter(Boolean);
-  assert.deepEqual(labels.filter((l) => ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Verlauf', 'Antwortentwurf'].includes(l)), ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Verlauf', 'Antwortentwurf']);
+  assert.deepEqual([...article.children].map((c) => (c.classList.contains('zone-head') ? 'Kopf' : c.classList.contains('zone-understand') ? 'Verstehen' : c.classList.contains('draft') ? 'Antwort' : '?')), ['Kopf', 'Verstehen', 'Antwort']);
+  const labels = (zone) => [...zone.children].map((c) => c.getAttribute('aria-label')).filter(Boolean);
+  assert.deepEqual(labels(box.querySelector('.zone-head')).filter((l) => ['Absender und Empfänger', 'Anhänge'].includes(l)), ['Absender und Empfänger', 'Anhänge']);
+  assert.deepEqual(labels(box.querySelector('.zone-understand')), ['Zusammenfassung', 'Aufgabe', 'Verlauf'], 'Zusammenfassung vor Aufgabe vor Verlauf');
+  assert.equal(box.querySelector('.zone-head .card'), null, 'der Kopf hat keine Karte');
+});
+
+test('Verlauf zugeklappt: eine Zeile mit dem Anfang der Mail, aufgeklappt verschwindet sie', opts, async () => {
+  const { box } = await render({}, { extra: { thread: async () => page1 } });
+  const preview = box.querySelector('.v-preview');
+  assert.ok(preview.textContent.length > 3 && !preview.hidden);
+  assert.ok(preview.textContent.startsWith('Paul Weber:') || preview.textContent.includes(':'), 'Absender und Anfang des Textes');
+  box.querySelector('.v-toggle').click();
+  assert.ok(preview.hidden);
+  box.querySelector('.v-toggle').click();
+  assert.ok(!preview.hidden);
 });
 
 test('Anonymisierung mit dem Verlauf: das Auge ersetzt den Verlauf durch die maskierte Mail und wieder zurück', opts, async () => {

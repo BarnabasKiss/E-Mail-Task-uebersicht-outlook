@@ -720,3 +720,40 @@ a.att:hover { background: var(--hover); }
 .att-pop .att-text { margin: 0; max-width: 380px; max-height: 240px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 ui-monospace, monospace; color: var(--text); }
 .att-pop .att-nopreview { color: var(--muted); font-size: 12px; }
 .att-pop em[hidden], .att-pop img[hidden] { display: none; }
+
+/* ---- Detail in drei Zonen: Kopf | Verstehen | Antworten */
+.detail { gap: 26px; }
+.zone-head { display: grid; gap: 10px; }
+/* Zone 1: kein Kartenrand, die Person und die Anhänge liegen direkt auf dem Hintergrund */
+.zone-head .people-block, .zone-head .attachments { padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; }
+.zone-head .people-block { gap: 6px; }
+.zone-head .d-title h2 { font-size: 21px; }
+/* Zone 2: eine Karte, die Teile trennen dünne Linien */
+.zone-understand { padding: 0; overflow: hidden; }
+.zone-understand > .card { background: none; border: 0; box-shadow: none; border-radius: 0; padding: 12px 18px; }
+.zone-understand > .card + .card, .zone-understand > .card + .zone-part { border-top: 1px solid var(--border); }
+.zone-understand > .card.summary { padding-top: 14px; }
+.zone-understand > .card.task { padding-top: 12px; padding-bottom: 12px; }
+.zone-understand > .card.verlauf { padding: 8px 18px; }
+.zone-understand > .card.verlauf.open { padding-bottom: 14px; }
+.zone-understand .card-head { margin-bottom: 6px; }
+/* gleiche Überschriften in allen Abschnitten */
+.zone-understand .card-head h3, .zone-understand .v-toggle { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.zone-understand .v-toggle .icon { color: var(--muted); }
+.v-preview { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 4px 2px; border: 0; background: none; color: var(--faint); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }
+.v-preview:empty { display: none; }
+.v-preview:hover { color: var(--muted); }
+/* Zone 3: der Arbeitsbereich ist hervorgehoben (Akzentstreifen links, leichte Tönung, größere Überschrift) */
+.card.draft, .cp-card { position: relative; padding: 16px 20px 18px; border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--accent) 3.5%, var(--panel)); }
+.card.draft .card-head { margin-bottom: 12px; }
+.card.draft .card-head h3 { font-size: 16px; letter-spacing: -.01em; }
+.draft-hint-row { margin-bottom: 10px; }
+.card.draft .imp-bar { margin: 10px 0 0; }
+/* Empfänger und Signatur | Senden: je ein eigener Abschnitt mit Trennlinie */
+.send-box { margin-top: 16px; padding-top: 14px; gap: 8px; }
+.send-actions { align-items: center; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+.send-actions .btn.primary { height: 36px; padding: 0 20px; font-size: 14px; }
+.send-actions .btn:not(.primary), .send-actions .sch > .btn { border-color: transparent; background: transparent; box-shadow: none; color: var(--muted); }
+.send-actions .btn:not(.primary):hover, .send-actions .sch > .btn:hover { background: var(--hover); color: var(--text); }
+.cp-card > .imp-bar { margin: 10px 0 14px; }
+.cp-card .cp-subject-row { margin-top: 2px; padding-top: 14px; border-top: 1px solid var(--border); }

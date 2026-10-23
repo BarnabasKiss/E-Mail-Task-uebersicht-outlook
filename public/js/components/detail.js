@@ -1,5 +1,7 @@
-// Die Detailansicht rechts, eine Spalte: Kopf mit Aktionen, Absender und Empfänger, Anhänge, Aufgabe (eine Zeile), Zusammenfassung (immer sichtbar),
-// Verlauf als eigene, aufklappbare Sektion (mit Knopf zum Vergrößern) und darunter die Antwort (Entwurf, Empfänger, Ablegen, Senden). Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
+// Die Detailansicht rechts, eine Spalte in drei Zonen mit deutlichem Abstand:
+//  1. Kopf (ohne Kartenrand): Titel mit Aktionen, Absender und Empfänger, Anhänge.
+//  2. Verstehen (eine Karte, innen durch Linien getrennt): Zusammenfassung (immer sichtbar), Aufgabe (eine Zeile), Verlauf (aufklappbar, mit Knopf zum Vergrößern).
+//  3. Antworten (hervorgehoben mit Akzentstreifen): Entwurf, Empfänger, Ablegen, Senden. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
 import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { createTaskRow } from './task-row.js';
@@ -156,8 +158,11 @@ export function renderDetail(container, data, ctx) {
   bodyView = body;
   const sizeBtn = el('button', { class: 'icon-btn v-size', type: 'button', hidden: true, 'aria-pressed': 'false', onclick: () => setBig(!verlauf.classList.contains('big')) });
   const toggle = el('button', { class: 'v-toggle', type: 'button', 'aria-expanded': 'false', onclick: () => setOpen(body.node.hidden) }, icon('chevron', 14), icon('file', 14), 'Verlauf');
+  // Zugeklappt: eine Zeile mit dem Anfang der geöffneten Mail, damit man nicht aufklappen muss, um zu wissen, worum es geht
+  const first = String(mail?.text || '').replace(/⟦bild:[^⟧]*⟧/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const preview = el('button', { class: 'v-preview', type: 'button', tabindex: '-1', title: 'Verlauf aufklappen', onclick: () => setOpen(true) }, first ? `${mail.from?.name || mail.from?.address || ''}: ${first}` : '');
   // Das Auge (Original/Anonymisiert) gehört zum Verlauf und ist nur bei aufgeklapptem Verlauf zu sehen
-  const verlauf = el('section', { class: 'card verlauf', 'aria-label': 'Verlauf' }, el('div', { class: 'v-head' }, toggle, el('span', { class: 'spacer' }), body.eye, sizeBtn), body.node);
+  const verlauf = el('section', { class: 'card verlauf', 'aria-label': 'Verlauf' }, el('div', { class: 'v-head' }, toggle, preview, el('span', { class: 'spacer' }), body.eye, sizeBtn), body.node);
   // Vergrößern: der Verlauf zeigt alles ohne Scrollen im Rahmen; nochmal klicken macht ihn wieder so klein wie vorher
   function setBig(big) {
     verlauf.classList.toggle('big', big);
@@ -169,6 +174,7 @@ export function renderDetail(container, data, ctx) {
   setBig(false);
   function setOpen(open) {
     sizeBtn.hidden = !open;
+    preview.hidden = open;
     body.node.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     verlauf.classList.toggle('open', open);
@@ -178,8 +184,10 @@ export function renderDetail(container, data, ctx) {
   }
   setOpen(ctx.view === 'message');
 
-  // Reihenfolge: Person, Anhänge, Aufgabe, Zusammenfassung, Verlauf, Antwort
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, taskRow?.node, summary, verlauf, draftPanel?.node));
+  // Zonen: Kopf (Titel, Person, Anhänge) | Verstehen (Zusammenfassung, Aufgabe, Verlauf) | Antworten
+  const zoneHead = el('div', { class: 'zone zone-head' }, head, testBanner, doneBanner, people, attachmentsBox);
+  const zoneUnderstand = el('div', { class: 'card zone zone-understand' }, summary, taskRow?.node, verlauf);
+  container.replaceChildren(el('article', { class: 'detail' }, zoneHead, zoneUnderstand, draftPanel?.node));
   container.scrollTop = 0;
   if (draftPanel) body.preload().then(() => draftPanel.refresh());
 

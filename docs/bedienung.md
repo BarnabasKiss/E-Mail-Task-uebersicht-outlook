@@ -44,8 +44,10 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
     mit Rückfrage. In Outlook bleibt die Mail unverändert.
 - **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (**Darüberfahren zeigt eine Vorschau**: bei Bildern das Bild, bei PDFs die erste Seite, bei Text und Office-Dateien den Textanfang; PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
   als Download; ✦ = Claude liest den Text daraus mit).
-- **Aufbau von oben nach unten (eine Spalte):** Absender und Empfänger, Anhänge, **Aufgabe** (immer eine Zeile), **Zusammenfassung** (immer sichtbar), der **Verlauf** als eigene Sektion,
-  die du auf- und zuklappen kannst (zunächst zu), und darunter die **Antwort** (Entwurf, Empfänger, Ablegen, Senden).
+- **Aufbau von oben nach unten, in drei Zonen mit deutlichem Abstand:**
+  1. **Kopf** (ohne Kartenrand): Titel mit den Aktionen, Absender und Empfänger, Anhänge.
+  2. **Verstehen** (eine Karte, durch dünne Linien geteilt): **Zusammenfassung** (immer sichtbar), **Aufgabe** (immer eine Zeile) und der **Verlauf** zum Auf- und Zuklappen (zunächst zu; zugeklappt zeigt eine graue Zeile den Anfang der Mail, ein Klick darauf klappt auf).
+  3. **Antwort** (hervorgehoben mit Akzentstreifen links): oben Hinweis, Text und Werkzeugleiste, darunter Empfänger und Signatur, ganz unten der große **Senden**-Knopf mit den leiseren Nebenknöpfen.
 - **Zusammenfassung** ist ein Absatz aus Zusammenfassung und Begründung.
 - **Verlauf:** die Konversation als Nachrichten (siehe unten). Aufgeklappt hat er einen festen, scrollbaren Rahmen mit der neuesten Nachricht unten. Der Knopf **⤢ rechts oben** macht den Rahmen
   so groß, dass du alles ohne Scrollen siehst; ein zweiter Klick macht ihn wieder so klein wie vorher. Das **Auge** in der Kopfzeile der Sektion (nur bei aufgeklapptem Verlauf) schaltet zwischen *Original* und
