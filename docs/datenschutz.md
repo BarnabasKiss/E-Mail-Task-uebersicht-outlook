@@ -34,7 +34,7 @@ eine Telefon- oder lange Zahl, wird **nichts an Claude gesendet**: Der Entwurf e
   Abschalten: `"attachments": { "ocrInline": false }`. Bilder von fremden Servern lädt die App nie (Tracking).
 
 ## Was geht an Claude? ansehen
-- **Auge** in der Ansicht „Nachricht“: *Original* (Mail mit Bildern) oder *Anonymisiert*. Anonymisiert zeigt den maskierten Mailtext mit markierten
+- **Auge** in der Sektion „Verlauf“ (bei aufgeklapptem Verlauf): *Original* (Mail mit Bildern) oder *Anonymisiert*. Anonymisiert zeigt den maskierten Mailtext mit markierten
   Platzhaltern (Tooltip: Originalwert), die Zuordnung als zugeklapptes Dropdown, die Bilder an ihrer Stelle mit einem Tooltip auf den **maskierten Bildtext**,
   den Text aus Anhängen und das **Ergebnis der Prüfung** („Prüfung bestanden“ oder „Würde NICHT an Claude gesendet“ mit Grund). Nichts wird dabei gesendet.
 - Bei aktivem Modul „Bewertung mit Anhängen“ zeigt **Was geht an Claude?** (unter den Anhängen) den genauen Prompt.

@@ -1,7 +1,5 @@
-// Die Detailansicht rechts: Kopf mit Aktionen, darunter bei breitem Bildschirm zwei Spalten.
-//  links:  Absender und Empfänger, Anhänge, Aufgabe (eine Zeile, über Zusammenfassung/Verlauf), Zusammenfassung/Verlauf
-//  rechts: Antwortentwurf, bleibt beim Scrollen stehen
-// Bei schmalem Bildschirm steht alles untereinander. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
+// Die Detailansicht rechts, eine Spalte: Kopf mit Aktionen, Absender und Empfänger, Anhänge, Aufgabe (eine Zeile), Zusammenfassung (immer sichtbar),
+// Antwortentwurf und darunter der Verlauf als eigene, aufklappbare Sektion. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
 import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { createTaskRow } from './task-row.js';
@@ -129,7 +127,7 @@ export function renderDetail(container, data, ctx) {
 
   const attachmentsBox = createAttachmentsBox(p.id, handlers.attachments);
 
-  // --- Zusammenfassung / Nachricht umschalten
+  // --- Zusammenfassung (immer sichtbar) und Verlauf (eigene Sektion, aufklappbar)
   const summaryText = [p.zusammenfassung, !done && p.begruendung].filter(Boolean).join(' ') || 'Keine Zusammenfassung vorhanden.';
   const summaryView = el(
     'div',
@@ -144,24 +142,25 @@ export function renderDetail(container, data, ctx) {
       el('button', { class: 'link', type: 'button', onclick: handlers.revertReview }, 'Zurücksetzen'),
     ),
   );
+  const summary = el('section', { class: 'card summary', 'aria-label': 'Zusammenfassung' }, el('div', { class: 'card-head' }, icon('sparkle', 14), el('h3', {}, 'Zusammenfassung')), summaryView);
+
   const body = createMailBody({ proposalId: p.id, mail, mailError, handlers, ownAddress: ctx.ownAddress });
   bodyView = body;
-  const tabSummary = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('summary') }, icon('sparkle', 14), 'Zusammenfassung');
-  const tabMessage = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('message') }, icon('file', 14), 'Verlauf');
-  function setView(v) {
-    summaryView.hidden = v !== 'summary';
-    body.node.hidden = v !== 'message';
-    if (v === 'message') body.show();
-    if (body.eye) body.eye.hidden = v !== 'message';
-    tabSummary.setAttribute('aria-selected', String(v === 'summary'));
-    tabMessage.setAttribute('aria-selected', String(v === 'message'));
-    ctx.onView?.(v);
+  const toggle = el('button', { class: 'v-toggle', type: 'button', 'aria-expanded': 'false', onclick: () => setOpen(body.node.hidden) }, icon('chevron', 14), icon('file', 14), 'Verlauf');
+  // Das Auge (Original/Anonymisiert) gehört zum Verlauf und ist nur bei aufgeklapptem Verlauf zu sehen
+  const verlauf = el('section', { class: 'card verlauf', 'aria-label': 'Verlauf' }, el('div', { class: 'v-head' }, toggle, el('span', { class: 'spacer' }), body.eye), body.node);
+  function setOpen(open) {
+    body.node.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    verlauf.classList.toggle('open', open);
+    if (body.eye) body.eye.hidden = !open;
+    if (open) body.show();
+    ctx.onView?.(open ? 'message' : 'summary');
   }
-  const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg-row' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), body.eye), summaryView, body.node);
-  setView(ctx.view === 'message' ? 'message' : 'summary');
+  setOpen(ctx.view === 'message');
 
-  const right = draftPanel ? el('div', { class: 'd-right' }, draftPanel.node) : null;
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, el('div', { class: 'd-main' }, el('div', { class: 'd-left' }, people, attachmentsBox, taskRow?.node, message), right)));
+  // Reihenfolge: Person, Anhänge, Aufgabe, Zusammenfassung, Antwortentwurf, Verlauf (ein aufgeklappter Verlauf schiebt den Entwurf nicht weg)
+  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, taskRow?.node, summary, draftPanel?.node, verlauf));
   container.scrollTop = 0;
   if (draftPanel) body.preload().then(() => draftPanel.refresh());
 

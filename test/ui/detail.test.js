@@ -155,18 +155,21 @@ test('Nachricht: Fällt die Prüfung durch, steht "Würde NICHT an Claude gesend
   assert.equal(offline.box.querySelector('.eye-btn'), null, 'ohne Maskierung kein Auge');
 });
 
-test('Ansichtswechsel meldet die Wahl, Zusammenfassung ist Standard', opts, async () => {
+test('Zusammenfassung ist immer sichtbar, der Verlauf eine zunächst zugeklappte Sektion, die die Wahl meldet', opts, async () => {
   const seen = [];
   const { box } = await render({}, { onView: (v) => seen.push(v) });
   assert.deepEqual(seen, ['summary']);
-  const [tabSummary, tabMessage] = box.querySelectorAll('.seg-btn');
-  tabMessage.click();
-  assert.ok(box.querySelector('.msg-summary').hidden && !box.querySelector('.msg-full').hidden);
-  assert.equal(tabMessage.getAttribute('aria-selected'), 'true');
-  tabSummary.click();
+  const toggle = box.querySelector('.v-toggle');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  assert.ok(box.querySelector('.msg-full').hidden, 'Verlauf zu');
+  assert.ok(!box.querySelector('.msg-summary').closest('section').hidden, 'Zusammenfassung sichtbar');
+  toggle.click();
+  assert.ok(!box.querySelector('.msg-full').hidden);
+  assert.ok(!box.querySelector('.msg-summary').closest('section').hidden, 'Zusammenfassung bleibt sichtbar');
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  toggle.click();
   assert.deepEqual(seen, ['summary', 'message', 'summary']);
 });
-
 test('Entwurf: Varianten und Hinweis gehen mit dem Text im Feld an regenerate, "Vorige Version" nur mit Vorversion', opts, async () => {
   const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: null, previous: null } };
   const { box, calls } = await render(withDraft);
@@ -262,13 +265,36 @@ test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt si
   assert.match(b2.querySelector('.thread .hint').textContent, /nur diese Nachricht/);
 });
 
-test('Layout: rechts nur der Antwortentwurf, links Person, Anhänge, Aufgabe (über dem Verlauf) und Verlauf', opts, async () => {
+test('Aufbau in einer Spalte: Person, Anhänge, Aufgabe, Zusammenfassung, Antwortentwurf, Verlauf', opts, async () => {
   const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo', previous: null } });
-  const left = box.querySelector('.d-left');
-  const right = box.querySelector('.d-right');
-  assert.ok(left.querySelector('.people-block') && left.querySelector('.msg') && !left.querySelector('.draft'));
-  assert.deepEqual([...left.children].map((c) => c.getAttribute('aria-label') || c.className).slice(-2).map((x) => (/Aufgabe|task/.test(x) ? 'Aufgabe' : 'Inhalt')), ['Aufgabe', 'Inhalt'], 'Aufgabe direkt über Zusammenfassung/Verlauf');
-  assert.deepEqual([...right.children].map((c) => c.getAttribute('aria-label')), ['Antwortentwurf']);
+  const article = box.querySelector('article.detail');
+  assert.equal(box.querySelector('.d-main, .d-left, .d-right'), null, 'keine zweite Spalte');
+  const labels = [...article.children].map((c) => c.getAttribute('aria-label')).filter(Boolean);
+  assert.deepEqual(labels.filter((l) => ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Antwortentwurf', 'Verlauf'].includes(l)), ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Antwortentwurf', 'Verlauf']);
+});
+
+test('Anonymisierung mit dem Verlauf: das Auge ersetzt den Verlauf durch die maskierte Mail und wieder zurück', opts, async () => {
+  const aiView = async () => ({ items: [], imageIds: [], text: null, problems: [] });
+  const { box } = await render({}, { aiView, extra: { thread: async () => page1 } });
+  const eye = box.querySelector('.eye-btn');
+  const thread = box.querySelector('.thread');
+  const text = box.querySelector('.mailtext');
+  assert.ok(eye.hidden, 'bei zugeklapptem Verlauf kein Auge');
+  box.querySelector('.v-toggle').click();
+  assert.ok(!eye.hidden, 'bei offenem Verlauf ist das Auge da');
+  eye.click();
+  await tick(30);
+  assert.ok(!box.querySelector('.msg-full').hidden, 'Verlauf offen');
+  assert.ok(thread.hidden && !text.hidden, 'statt des Verlaufs steht die maskierte Mail');
+  assert.ok(text.querySelector('mark.mask'), 'Platzhalter sind markiert');
+  assert.match(text.textContent, /\[PERSON_1\]/);
+  assert.ok(!box.querySelector('.mask-legend').hidden, 'Zuordnung als Dropdown');
+  assert.match(eye.textContent, /Anonymisiert/);
+  eye.click();
+  assert.ok(!thread.hidden && text.hidden, 'zurück zum Verlauf');
+  assert.match(eye.textContent, /Original/);
+  box.querySelector('.v-toggle').click();
+  assert.ok(eye.hidden, 'zugeklappt: Auge weg');
 });
 
 const reply = (o = {}) => ({ sender: 'helga@partner.at', only: { to: ['helga@partner.at'], cc: [] }, all: { to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] }, draft: null, ...o });

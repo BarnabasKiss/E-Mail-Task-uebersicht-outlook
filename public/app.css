@@ -481,16 +481,6 @@ a.att:hover { background: var(--hover); }
 .p-mail-summary { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .p-mail .row-badges { margin-top: 2px; }
 
-/* ---- Zwei Spalten bei breitem Detailbereich: links Person, Anhänge, Zusammenfassung und Verlauf, rechts Aufgabe und Antwortentwurf */
-.d-main { display: grid; gap: 10px; min-width: 0; }
-.d-left, .d-right { display: grid; gap: 10px; min-width: 0; align-content: start; }
-/* Zwei Spalten erst, wenn links Platz für die Aufgabenzeile in einer Zeile bleibt (etwa 720 px); die ganze Breite wird genutzt */
-@container pane (min-width: 1180px) {
-  .detail { max-width: none; }
-  .d-main { grid-template-columns: minmax(0, 1fr) clamp(420px, 30%, 640px); gap: 18px; align-items: start; }
-  .d-right { position: sticky; top: 10px; max-height: calc(100vh - 90px); overflow: auto; padding-right: 2px; }
-}
-
 /* ---- Verlauf als Nachrichten */
 .thread { display: grid; gap: 10px; }
 .thread-list { display: grid; gap: 10px; }
@@ -533,14 +523,6 @@ a.att:hover { background: var(--hover); }
 .send-status { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
 .send-status:empty { display: none; }
 
-/* Spaltenkinder dürfen schmaler werden als ihr Inhalt, sonst läuft die rechte Spalte über */
-.d-left > *, .d-right > * { min-width: 0; }
-@container pane (min-width: 1180px) {
-  .d-right { overflow-x: hidden; }
-  .d-right .card-head { flex-wrap: wrap; gap: 6px 8px; }
-  .d-right .draft-status { order: 9; flex: 1 1 100%; }
-  .d-right .draft-tools .draft-hint { flex-basis: 100%; }
-}
 
 /* Kopfzeile einer Nachricht: eine Zeile, vollständige Liste als Popover */
 .thread-older[hidden] { display: none; }
@@ -557,3 +539,16 @@ a.att:hover { background: var(--hover); }
 .pop-addr { color: var(--muted); overflow-wrap: anywhere; }
 
 [hidden] { display: none !important; }
+
+/* ---- Zusammenfassung und Verlauf als eigene Sektionen */
+.card.summary { padding: 10px 14px 12px; }
+.card.summary .card-head { gap: 7px; margin-bottom: 6px; }
+.card.summary .card-head .icon { color: var(--accent); }
+.card.verlauf { padding: 6px 12px; }
+.card.verlauf.open { padding-bottom: 12px; }
+.v-head { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.v-toggle { display: inline-flex; align-items: center; gap: 7px; padding: 4px 6px; margin-left: -6px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-weight: 650; cursor: pointer; }
+.v-toggle:hover { background: var(--hover); }
+.v-toggle .icon:first-child { color: var(--muted); transition: transform .12s ease; transform: rotate(-90deg); }
+.v-toggle[aria-expanded="true"] .icon:first-child { transform: none; }
+.card.verlauf .msg-full { margin-top: 6px; }

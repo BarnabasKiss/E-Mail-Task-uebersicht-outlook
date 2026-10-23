@@ -44,13 +44,13 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
     mit Rückfrage. In Outlook bleibt die Mail unverändert.
 - **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
   als Download; ✦ = Claude liest den Text daraus mit).
-- **Zusammenfassung / Verlauf** per Umschalter. *Zusammenfassung* ist ein Absatz aus Zusammenfassung und Begründung. *Verlauf* zeigt die Konversation als Nachrichten
-  (siehe unten). Das **Auge** darüber schaltet zwischen *Original* und *Anonymisiert* um; anonymisiert zeigt es die geöffnete Mail so, wie Claude sie bekäme
-  (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
-- **Aufgabe** steht immer in **einer Zeile** direkt über Zusammenfassung/Verlauf. Bei breitem Bildschirm (Detailbereich ab etwa 1180 px, die ganze Breite wird genutzt) steht der
-  **Antwortentwurf** in einer **rechten Spalte**, die beim Scrollen stehen bleibt; links stehen Absender, Anhänge, Aufgabe, Zusammenfassung und Verlauf.
-  Bei schmalerem Bildschirm steht alles untereinander, und nur wenn die Breite gar nicht reicht, bricht die Aufgabenzeile um.
-- **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**.
+- **Aufbau von oben nach unten (eine Spalte):** Absender und Empfänger, Anhänge, **Aufgabe** (immer eine Zeile), **Zusammenfassung** (immer sichtbar), **Antwortentwurf**
+  und zuletzt der **Verlauf** als eigene Sektion, die du auf- und zuklappen kannst (zunächst zu; ein aufgeklappter Verlauf schiebt den Entwurf nicht weg).
+- **Zusammenfassung** ist ein Absatz aus Zusammenfassung und Begründung.
+- **Verlauf:** die Konversation als Nachrichten (siehe unten). Das **Auge** in der Kopfzeile der Sektion (nur bei aufgeklapptem Verlauf) schaltet zwischen *Original* und
+  *Anonymisiert* um: anonymisiert ersetzt es den Verlauf durch die geöffnete Mail so, wie Claude sie bekäme, mit markierten Platzhaltern, der Zuordnung als Dropdown, dem Text
+  aus Bildern und Anhängen und dem Ergebnis der Prüfung (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
+- **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**. Sie steht über der Zusammenfassung.
   Die Mail bleibt danach in „Offen“; die Zeile zeigt „✓ Aufgabe übernommen“ mit „Weitere Aufgabe“.
 - **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Darunter die Werkzeuge:
   - **Kürzer, Förmlicher, Freundlicher** überarbeiten den Text im Feld (auch deine Änderungen daran). **Ablehnung** schreibt neu: höflich ablehnen, ohne einen Grund
@@ -60,7 +60,7 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
   - Anrede und Gruß setzt die App aus dem [Absender-Gedächtnis](#absender-profil-und-gedächtnis) ein, wenn sie für den Absender bekannt sind.
 
 ## Verlauf als Nachrichten
-Der Tab **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, die neueste unten (zunächst die letzten 10, darüber **Ältere Nachrichten laden**).
+Die Sektion **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, die neueste unten (zunächst die letzten 10, darüber **Ältere Nachrichten laden**).
 - **Deine Nachrichten stehen rechts, die der anderen links.** Jede andere Person hat ihre eigene Farbe (immer dieselbe für dieselbe Adresse), die Nachricht, die du geöffnet hast, ist umrandet.
 - **Kopfzeile je Nachricht:** nur der Name des Absenders (du selbst heißt „Du“) und die Zeit, in einer Zeile; eine Büroklammer zeigt einen Anhang. Fährst du mit der Maus über den Namen
   (oder springst mit der Tab-Taste hin), erscheint die vollständige Liste in den Blöcken **Von**, **An** und **CC**, je Zeile mit Name und Adresse.
