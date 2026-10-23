@@ -44,6 +44,7 @@ globalThis.fetch = async (url, init = {}) => {
     return json({ proposal: it, mail: { source: 'outlook', subject: it.betreff, from: { name: it.absender, address: it.absender_mail }, to: [], cc: [], receivedDateTime: it.received_at, text: `Text von ${it.betreff}` }, mailError: null, draft: null, headings: [] });
   }
   if (p === '/api/history-learn') return json(learnStatus);
+  if (p === '/api/compose-info') return json({ signature: 'Barni Kiss', ownAddress: 'barni@firma.at' });
   if (p === '/api/address-book') return json({ total: book.length, items: book.filter((b) => !u.searchParams.get('q') || b.name.toLowerCase().includes(u.searchParams.get('q'))), stats: { total: book.length, mail: 1, manuell: book.length - 1 } });
   m = /^\/api\/contacts\/(.+)$/.exec(p);
   if (m) {
@@ -442,4 +443,28 @@ test('Kontakte: Ansicht mit Adressbuch, Anlegen, Löschen und Outlook-Import (le
   [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
   await tick(60);
   assert.ok(!document.querySelector('#detail .contacts'));
+});
+
+test('Neue Mail: Knopf in der Kopfzeile öffnet die Ansicht, beim Verlassen mit Inhalt kommt eine Rückfrage', opts, async () => {
+  $('compose-link').click();
+  await tick(60);
+  assert.equal(document.querySelector('#detail .compose h2').textContent, 'Neue Mail');
+  const subject = document.querySelector('#detail .cp-subject');
+  subject.value = 'Angebot';
+  subject.dispatchEvent(new w.Event('input'));
+  let asked = 0;
+  globalThis.confirm = () => (asked += 1, false);
+  document.querySelector('#list .mail-row')?.click();
+  await tick(60);
+  assert.equal(asked, 1, 'Rückfrage beim Verlassen');
+  assert.ok(document.querySelector('#detail .compose'), 'geblieben');
+  globalThis.confirm = () => true;
+  document.querySelector('#list .mail-row')?.click();
+  await tick(80);
+  assert.ok(!document.querySelector('#detail .compose'), 'nach "Ja" verlassen');
+  $('compose-link').click();
+  await tick(60);
+  document.querySelector('#detail .d-actions .btn').click(); // Zurück ohne Inhalt: keine Rückfrage
+  await tick(60);
+  assert.ok(!document.querySelector('#detail .compose'));
 });

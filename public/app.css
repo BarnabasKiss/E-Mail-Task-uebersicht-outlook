@@ -604,3 +604,17 @@ a.att:hover { background: var(--hover); }
 .ct-last { font-size: 11.5px; color: var(--faint); text-align: right; }
 .ct-more { margin-top: 8px; }
 @media (max-width: 900px) { .ct-add { grid-template-columns: 1fr 1fr; } .ct-row { grid-template-columns: 1fr 1fr 30px; } .ct-src, .ct-last { display: none; } }
+
+/* Neue Mail */
+.compose { display: grid; gap: 12px; align-content: start; }
+.cp-card { display: grid; gap: 8px; padding: 12px 14px; }
+.cp-subject-row { display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 6px; }
+.cp-subject-row label { color: var(--muted); font-size: 12px; }
+.cp-subject { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; font-weight: 600; min-width: 0; }
+.cp-subject:focus { outline: none; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px var(--accent-weak); }
+.cp-text { min-height: 240px; }
+.cp-sig { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12.5px; }
+.cp-sig[hidden] { display: none; }
+.cp-sig details { color: var(--muted); }
+.cp-sig summary { cursor: pointer; }
+.cp-sig pre { margin: 4px 0 0; white-space: pre-wrap; font: inherit; padding: 6px 8px; border-left: 2px solid var(--border); }

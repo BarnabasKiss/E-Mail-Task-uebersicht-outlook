@@ -53,6 +53,7 @@ export function renderDetail(container, data, ctx) {
         onOutlookDraft: handlers.outlookDraft,
         onOutlookDraftDelete: handlers.outlookDraftDelete,
         onSend: handlers.outlookSend,
+        onArchive: () => handlers.archive({ ignoreSender: false }),
         undoSeconds: handlers.undoSeconds,
       })
     : null;

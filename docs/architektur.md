@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 server.js               Startpunkt: baut alle Module zusammen, startet Hintergrundjobs und den lokalen Webserver
 config.example.json     Vorlage der Einstellungen (config.json ist nicht im Repo)
-actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, bulk (Sammelaktion)
+actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, compose (compose-draft, compose-send, compose-discard), bulk (Sammelaktion)
 lib/
   Schnittstelle
     api.js              Routen unter /api/ (nur Routing), statische Dateien
@@ -29,7 +29,7 @@ lib/
     attachment-http.js  Auslieferung eines Anhangs (nie als HTML/Skript)
     open-file.js        Datei mit dem Standardprogramm öffnen (Windows, macOS, Linux)
   Daten und Dienste
-    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent, getThread, saveDraft, deleteDraft, sendDraft, listContacts)
+    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent, getThread, saveDraft, saveNewDraft, deleteDraft, sendDraft, listContacts)
     scheduler.js        Hintergrundjobs: Vorschläge, Done-Liste, Antworten, Entwürfe, Lernen (+ Zusatzjobs der Module)
     store.js            lokaler Zustand (state.json, atomar geschrieben)
     config.js           config.json laden, ~ und %VAR% in Pfaden ersetzen
@@ -74,7 +74,8 @@ public/                 Oberfläche
     marking.js, shortcuts.js    markierte Mails (Sammelaktionen) und Tastatur
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
                         mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
-                        send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge)
+                        send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail);
+                        countdown.js (10 Sekunden vor dem Senden)
 test/                   Tests (node --test); test/ui/ = Oberfläche im simulierten Browser
 n8n/                    Nachbauanleitung, Code der Code-Nodes, Prompt
 docs/                   diese Doku
@@ -102,10 +103,11 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/ai-view` | anonymisierte Vorschau (Mailtext, Bilder, Anhänge, Prüfergebnis) |
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
-| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book` |
+| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard` |
 | `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
+| `GET /compose-info` | gemerkte Signatur für neue Mails |
 | `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |
 | `GET /address-book?q=&source=&limit=` | Liste und Zahlen für die Kontaktverwaltung (ändern: Aktion `book`) |
 | `GET /contacts/:adresse` | Absender-Profil: Zahlen, Regeln, Gedächtnis (Änderungen: Aktion `contact`) |

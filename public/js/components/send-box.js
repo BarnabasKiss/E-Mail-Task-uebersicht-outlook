@@ -1,18 +1,21 @@
 // Unter dem Antwortentwurf: Empfänger (An, CC, BCC, mit Vorschlägen aus dem Adressbuch) prüfen, in Outlook ablegen oder senden.
-// Senden legt den Entwurf zuerst in Outlook ab und wartet dann 10 Sekunden ("Rückgängig"), bevor wirklich gesendet wird.
+// Senden legt den Entwurf zuerst in Outlook ab und wartet dann 10 Sekunden ("Rückgängig"), bevor wirklich gesendet wird. Die Mail bleibt danach
+// offen; "Senden & Done" legt sie gleich in Done ab, und nach dem Senden bietet die App „In Done ablegen“ an.
 // Mit offenen Platzhaltern ([BITTE ERGÄNZEN …]), ohne Empfänger oder mit halber Eingabe in einem Feld geht es nicht.
 import { el, toast, formatShort } from '../util.js';
 import { icon } from '../icons.js';
 import { createRecipientField } from './recipient-field.js';
+import { startCountdown } from '../countdown.js';
 
 const UNDO_SECONDS = 10;
 
 /**
  * reply: { names, only: {to, cc}, all: {to, cc}, draft: gemerkter Outlook-Entwurf | null }
  * getText(): Text im Feld. ownSignature(): Signatur deiner letzten Nachricht ('' = keine bekannt). suggest(q, exclude) -> Vorschläge.
- * save({text, to, cc, bcc}) -> { webLink, savedAt, simulated } (wirft bei Fehler). send() -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
+ * save({text, to, cc, bcc}) -> { webLink, savedAt, simulated } (wirft bei Fehler). send({done}) -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
+ * archive() legt die Mail in Done ab (Knopf nach dem Senden).
  */
-export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, undoSeconds = UNDO_SECONDS }) {
+export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, undoSeconds = UNDO_SECONDS }) {
   const saved = reply.draft;
   const hasAll = JSON.stringify([reply.all.to, reply.all.cc]) !== JSON.stringify([reply.only.to, reply.only.cc]);
   const start = saved ? { to: saved.to, cc: saved.cc, bcc: saved.bcc || [] } : { ...reply.only, bcc: [] };
@@ -34,9 +37,10 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   const status = el('span', { class: 'send-status', role: 'status' });
   const saveBtn = el('button', { class: 'btn', type: 'button', onclick: () => doSave() }, icon('external', 15), el('span', {}, 'In Outlook ablegen'));
   const sendBtn = el('button', { class: 'btn primary', type: 'button', onclick: () => doSend() }, icon('check', 15), el('span', {}, 'Senden'));
+  const sendDoneBtn = el('button', { class: 'btn', type: 'button', title: 'Senden und die Mail gleich in Done ablegen', onclick: () => doSend({ done: true }) }, icon('archive', 15), el('span', {}, 'Senden & Done'));
   const undoBar = el('div', { class: 'send-undo', hidden: true });
   let busy = false;
-  let timer = null;
+  let countdown = null;
 
   function setMode(m) {
     const r = reply[m];
@@ -63,10 +67,11 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   function update() {
     sigRow.hidden = !ownSignature();
     const why = problem();
-    const off = busy || !!timer;
+    const off = busy || !!countdown;
     saveBtn.disabled = off || !getText().trim() || !to.get().length;
     sendBtn.disabled = off || !!why;
-    sendBtn.title = why || 'Legt den Entwurf in Outlook ab und sendet nach 10 Sekunden (mit Rückgängig)';
+    sendDoneBtn.disabled = off || !!why;
+    sendBtn.title = why || 'Legt den Entwurf in Outlook ab und sendet nach 10 Sekunden (mit Rückgängig). Die Mail bleibt offen.';
     for (const f of [to, cc, bcc]) f.setDisabled(off);
   }
 
@@ -112,41 +117,36 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     }
   }
 
-  async function doSend() {
+  async function doSend({ done = false } = {}) {
     [to, cc, bcc].forEach((f) => f.commit());
     const why = problem();
     if (why) return toast(why, { error: true });
     if (!(await doSave())) return;
     const p = payload();
-    let left = undoSeconds;
-    const stop = () => {
-      clearInterval(timer);
-      timer = null;
-      undoBar.hidden = true;
-      update();
-    };
     const who = `${p.to.join(', ')}${p.cc.length ? ` (CC ${p.cc.join(', ')})` : ''}${p.bcc.length ? ` (BCC ${p.bcc.length})` : ''}`;
-    const paint = () =>
-      undoBar.replaceChildren(
-        el('span', {}, `Wird in ${left} s an ${who} gesendet.`),
-        el('button', { class: 'btn small', type: 'button', onclick: () => { stop(); status.textContent = 'Senden abgebrochen. Der Entwurf liegt weiter in Outlook.'; } }, icon('undo', 14), 'Rückgängig'),
-      );
-    undoBar.hidden = false;
-    timer = setInterval(async () => {
-      left -= 1;
-      if (left > 0) return paint();
-      clearInterval(timer);
-      undoBar.replaceChildren(el('span', {}, 'Wird gesendet …'));
-      const ok = await send();
-      if (!ok) {
-        timer = null;
-        undoBar.hidden = true;
-        status.textContent = 'Das Senden hat nicht geklappt. Der Entwurf liegt in Outlook.';
+    countdown = startCountdown({
+      bar: undoBar,
+      seconds: undoSeconds,
+      text: (left) => `Wird in ${left} s an ${who} gesendet${done ? ' und danach in Done abgelegt' : ''}.`,
+      send: () => send({ done }),
+      onStop: (reason) => {
+        countdown = null;
+        if (reason === 'cancel') status.textContent = 'Senden abgebrochen. Der Entwurf liegt weiter in Outlook.';
+        else if (reason === 'failed') status.textContent = 'Das Senden hat nicht geklappt. Der Entwurf liegt in Outlook.';
+        else if (!done) showSent(who);
         update();
-      }
-    }, 1000);
-    paint();
+      },
+    });
     update();
+  }
+
+  // Nach dem Senden bleibt die Mail offen; hier kann sie gleich in Done wandern
+  function showSent(who) {
+    status.replaceChildren(
+      icon('check', 14),
+      `${isTest ? 'Test: nichts gesendet (simuliert)' : 'Gesendet'} (${formatShort(new Date().toISOString())}) an ${who}. `,
+      archive && el('button', { class: 'link', type: 'button', onclick: () => archive() }, 'In Done ablegen'),
+    );
   }
 
   if (saved) showSaved(saved);
@@ -161,7 +161,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     el('div', { class: 'send-row' }, cc.node, bccLink),
     bccRow,
     sigRow,
-    el('div', { class: 'send-actions' }, saveBtn, sendBtn),
+    el('div', { class: 'send-actions' }, saveBtn, sendBtn, sendDoneBtn),
     undoBar,
     status,
   );

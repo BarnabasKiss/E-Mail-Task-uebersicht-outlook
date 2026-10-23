@@ -41,7 +41,7 @@ export function renderProfile(container, data, handlers, { tab = 'mails', onTab 
     'header',
     { class: 'd-head' },
     el('div', { class: 'd-title' }, el('h2', {}, data.name || data.address), el('div', { class: 'd-badges' }, badge(data.address), data.domain && badge(`${data.domain.mails} Mails von ${data.domain.key}`, '', 'inbox'))),
-    el('div', { class: 'd-actions' }, el('button', { class: 'btn', type: 'button', onclick: handlers.back }, icon('undo', 15), el('span', {}, 'Zurück zur Mail'))),
+    el('div', { class: 'd-actions' }, el('button', { class: 'btn', type: 'button', onclick: () => handlers.compose?.(data.address), title: 'Neue Mail an diese Adresse schreiben' }, icon('external', 15), el('span', {}, 'Neue Mail')), el('button', { class: 'btn', type: 'button', onclick: handlers.back }, icon('undo', 15), el('span', {}, 'Zurück zur Mail'))),
   );
 
   const overview = el(

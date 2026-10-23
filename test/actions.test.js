@@ -191,7 +191,7 @@ test('Outlook-Entwurf: Löschen entfernt nur den gemerkten Entwurf', async () =>
   assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 1 }), { deleted: false });
 });
 
-test('Senden: nur der gemerkte Entwurf, nicht mit offenen Platzhaltern; danach beantwortet und lernbereit', async () => {
+test('Senden: nur der gemerkte Entwurf, nicht mit offenen Platzhaltern; die Mail bleibt offen, mit done wandert sie nach Done', async () => {
   const s = outlookSetup();
   await s.scheduler.refresh();
   await assert.rejects(actions['outlook-send'].run(s.services, { id: 1 }), /keinen abgelegten Entwurf/);
@@ -200,12 +200,29 @@ test('Senden: nur der gemerkte Entwurf, nicht mit offenen Platzhaltern; danach b
   assert.ok(!s.sent.some((c) => c[0] === 'sendDraft'), 'nichts gesendet');
   await actions['outlook-draft'].run(s.services, { id: 1, text: 'Hallo\n\nTermin passt.', to: ['h@x.at'] });
   const draftId = s.store.get('outlookDrafts', 'M1').draftId;
-  assert.deepEqual(await actions['outlook-send'].run(s.services, { id: 1 }), { sent: true, simulated: false });
+  assert.deepEqual(await actions['outlook-send'].run(s.services, { id: 1 }), { sent: true, simulated: false, done: false });
   assert.deepEqual(s.sent.at(-1), ['sendDraft', draftId]);
-  assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [['setStatus', 1, 'beantwortet']]);
-  assert.equal(s.store.get('replies', 'M1').reply.body, 'Hallo\n\nTermin passt.');
+  assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [], 'der Status bleibt: die Mail liegt weiter in Offen');
+  assert.ok(s.scheduler.state.items.some((p) => p.id === 1));
+  assert.ok(s.store.get('appSent', 'M1'), 'gemerkt, damit die Antworterkennung sie nicht von sich aus ablegt');
+  assert.equal(s.store.get('replies', 'M1').reply.body, 'Hallo\n\nTermin passt.', 'zum Lernen');
   assert.equal(s.store.get('outlookDrafts', 'M1'), undefined);
+
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'Noch eine Antwort', to: ['h@x.at'] });
+  assert.equal((await actions['outlook-send'].run(s.services, { id: 1, done: true })).done, true);
+  assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [['setStatus', 1, 'beantwortet']]);
   assert.ok(s.scheduler.state.archive.some((p) => p.id === 1 && p.status === 'beantwortet'));
+});
+
+test('Antworterkennung: aus der App gesendete Mails lässt sie offen', async () => {
+  const rows = { neu: [row(1, { antwort_noetig: true }), row(2, { antwort_noetig: true })] };
+  const s = setup(rows);
+  s.n8n.hasReply = async () => ({ hasReply: true, reply: { body: 'Antwort' } });
+  s.scheduler = createScheduler({ n8n: s.n8n, drafts: { getMail: async () => null }, learner: {}, store: s.store, poll: { proposalsSec: 1, repliesSec: 1, draftsSec: 1, learnSec: 1 }, log: () => {} });
+  await s.scheduler.refresh();
+  s.store.set('appSent', 'M1', new Date().toISOString());
+  await s.scheduler.checkReplies();
+  assert.deepEqual(s.scheduler.state.items.map((p) => p.id), [1], 'Mail 1 bleibt offen, Mail 2 ist als beantwortet abgelegt');
 });
 
 test('Testmails: Ablegen, Verwerfen und Senden sind nur simuliert, an n8n geht nichts, gelernt wird nicht', async () => {
@@ -217,7 +234,10 @@ test('Testmails: Ablegen, Verwerfen und Senden sind nur simuliert, an n8n geht n
   assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 2 }), { deleted: true });
   await actions['outlook-draft'].run(s.services, { id: 2, text: 'Hallo', to: ['support@kunde.at'] });
   const sent = await actions['outlook-send'].run(s.services, { id: 2 });
-  assert.deepEqual(sent, { sent: false, simulated: true });
+  assert.deepEqual(sent, { sent: false, simulated: true, done: false });
+  assert.ok(s.scheduler.state.items.some((p) => p.mail_id === 'TEST-X-1'), 'bleibt offen');
+  await actions['outlook-draft'].run(s.services, { id: 2, text: 'Nochmal', to: ['support@kunde.at'] });
+  await actions['outlook-send'].run(s.services, { id: 2, done: true });
   assert.deepEqual(s.sent, [], 'auch beim Senden nichts an n8n');
   assert.equal(s.store.get('replies', 'TEST-X-1'), undefined, 'daraus lernt die App nichts');
   assert.ok(s.scheduler.state.archive.some((p) => p.mail_id === 'TEST-X-1'), 'die Testmail liegt danach unter Done');
@@ -262,4 +282,41 @@ test('Adressbuch aus gesendeten Mails: beide Quellen, jede Mail einmal, Empfäng
   assert.deepEqual(r, { mails: 2, people: 3 });
   assert.deepEqual(book.list().items.map((p) => p.address), ['a@x.at', 'c@x.at', 'm@y.at']);
   assert.equal(book.search('anna')[0].sentCount, 1);
+});
+
+// --- Neue Mail
+test('Neue Mail: als Entwurf ablegen (prüft Betreff, Text, Empfänger), erneutes Ablegen ersetzt den alten Entwurf, Senden nur für App-Entwürfe', async () => {
+  const s = outlookSetup();
+  s.n8n.saveNewDraft = async (a) => (s.sent.push(['saveNewDraft', a]), { draftId: `N${s.sent.length}-xxxxxxxxxxxxxxxxxxxx`, webLink: 'https://outlook/n' });
+  const touched = [];
+  s.services.addressBook = { touch: (a) => touched.push(...a) };
+  const run = (name, p) => actions[name].run(s.services, p);
+  await assert.rejects(run('compose-draft', { subject: ' ', text: 'x', to: ['a@x.at'] }), /Betreff/);
+  await assert.rejects(run('compose-draft', { subject: 'Hallo', text: ' ', to: ['a@x.at'] }), /Text/);
+  await assert.rejects(run('compose-draft', { subject: 'Hallo', text: 'x', to: [] }), /Empfänger/);
+  await assert.rejects(run('compose-draft', { subject: 'Hallo', text: 'x', to: ['kaputt'] }), /Ungültige Adresse bei An/);
+  assert.deepEqual(s.sent, [], 'bei Fehlern geht nichts an n8n');
+
+  const first = await run('compose-draft', { subject: 'Angebot\nZeile 2', text: 'Text', to: ['A@x.at'], cc: ['a@x.at', 'c@x.at'], bcc: ['c@x.at', 'b@x.at'] });
+  assert.deepEqual(s.sent[0], ['saveNewDraft', { subject: 'Angebot Zeile 2', text: 'Text', to: ['a@x.at'], cc: ['c@x.at'], bcc: ['b@x.at'] }]);
+  const second = await run('compose-draft', { subject: 'Angebot', text: 'Text 2', to: ['a@x.at'], replaceId: first.draftId });
+  assert.deepEqual(s.sent.map((c) => c[0]), ['saveNewDraft', 'deleteDraft', 'saveNewDraft']);
+  assert.equal(s.sent[1][1], first.draftId, 'der alte Entwurf wird zuerst gelöscht');
+  assert.equal(s.store.get('composeDrafts', first.draftId), undefined);
+
+  await assert.rejects(run('compose-send', { draftId: 'FREMD-xxxxxxxxxxxxxxxxxxxx' }), /nicht aus der App/);
+  assert.deepEqual(await run('compose-send', { draftId: second.draftId }), { sent: true });
+  assert.deepEqual(s.sent.at(-1), ['sendDraft', second.draftId]);
+  assert.deepEqual(touched, ['a@x.at']);
+  await assert.rejects(run('compose-send', { draftId: second.draftId }), /schon gesendet/, 'nicht zweimal');
+});
+
+test('Neue Mail: Verwerfen löscht nur App-Entwürfe', async () => {
+  const s = outlookSetup();
+  s.n8n.saveNewDraft = async () => ({ draftId: 'N1-xxxxxxxxxxxxxxxxxxxx' });
+  const d = await actions['compose-draft'].run(s.services, { subject: 'S', text: 'T', to: ['a@x.at'] });
+  assert.deepEqual(await actions['compose-discard'].run(s.services, { draftId: 'FREMD-xxxxxxxxxxxxxxxxxxxx' }), { deleted: false });
+  assert.deepEqual(s.sent.filter((c) => c[0] === 'deleteDraft'), [], 'fremde ID: nichts gelöscht');
+  assert.deepEqual(await actions['compose-discard'].run(s.services, { draftId: d.draftId }), { deleted: true });
+  assert.equal(s.sent.at(-1)[1], d.draftId);
 });

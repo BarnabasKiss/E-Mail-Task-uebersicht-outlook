@@ -78,10 +78,20 @@ Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewer
 - **Meine Signatur anhängen:** erscheint, sobald im Verlauf eine eigene Signatur erkannt wurde, und hängt sie als Text an (Formatierung und Logo gehen dabei verloren).
 - **In Outlook ablegen** legt die Antwort als Entwurf in Outlook an (mit dem zitierten Verlauf wie bei einer normalen Antwort). Gesendet wird nichts. Danach stehen dort
   „In Outlook öffnen“ und „Entwurf dort löschen“; legst du erneut ab, ersetzt der neue Entwurf den alten.
-- **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **10 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook). Danach gilt die Mail als beantwortet
-  und liegt in Done, und die App lernt aus dem gesendeten Text wie sonst auch.
+- **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **10 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook). Die Mail **bleibt danach offen**
+  (auch die automatische Antworterkennung legt sie nicht von sich aus ab); unter dem Entwurf steht „Gesendet … In Done ablegen“. **Senden & Done** sendet und legt die Mail gleich in Done ab.
+  Die App lernt aus dem gesendeten Text wie sonst auch.
 - **Gesperrt** sind „Senden“ bei offenem `[BITTE ERGÄNZEN …]`, ohne Empfänger, bei leerem Text und bei einer halben Eingabe in einem Empfängerfeld (der Tooltip nennt den Grund). Anhänge lassen sich über die App nicht mitschicken.
 - Dafür braucht die n8n-Verbindung zu Outlook die Rechte *Mail.ReadWrite* und *Mail.Send* (siehe [n8n/README.md](../n8n/README.md)).
+
+## Neue Mail schreiben
+Der Knopf **Neue Mail** oben rechts (oder **Neue Mail** im Absender-Profil, dort mit der Adresse vorbelegt) öffnet die Schreibansicht anstelle der Mail:
+- **An, CC, BCC** wie bei der Antwort (Chips, Vorschläge aus dem [Adressbuch](#kontakte-das-adressbuch)), dazu **Betreff** und **Text**.
+- **Meine Signatur anhängen:** erscheint, sobald die App deine Signatur in einem Verlauf erkannt hat (sie merkt sie sich); „ansehen“ zeigt den Text. Anhänge lassen sich nicht mitsenden.
+- **In Outlook ablegen** legt die Mail als Entwurf an (erneutes Ablegen ersetzt ihn, „In Outlook öffnen“ führt dorthin). **Senden** legt sie ab und sendet nach 10 Sekunden mit **Rückgängig**; danach schließt die Ansicht.
+  Gesendet wird nur ein Entwurf, den die App selbst abgelegt hat. **Verwerfen** (oder **Zurück**) löscht einen abgelegten Entwurf.
+- Gesperrt sind beide Knöpfe ohne Empfänger, Betreff oder Text und mit einer halben Adresse in einem Feld; der Tooltip nennt den Grund.
+- Wer die Ansicht mit Inhalt verlässt (andere Mail, Profil, Kontakte …), wird gefragt. Zum Ausprobieren eignet sich die eigene Adresse bei An: die Mail landet nur bei dir.
 
 ## Kontakte: das Adressbuch
 Der Link **Kontakte** oben rechts öffnet das Adressbuch der App. Es liefert die Vorschläge bei An, CC und BCC und liegt nur auf diesem Rechner (`address-book.json` im Datenordner).

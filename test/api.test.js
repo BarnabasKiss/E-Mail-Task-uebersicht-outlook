@@ -305,3 +305,14 @@ test('Adressbuch: Vorschläge und Liste über die Schnittstelle, Anlegen über d
     s.close();
   }
 });
+
+test('Neue Mail: compose-info liefert die gemerkte Signatur', async () => {
+  const s = await start();
+  try {
+    assert.deepEqual(await (await s.get('/api/compose-info')).json(), { signature: '', ownAddress: OWN });
+    s.store.set('settings', 'signature', 'Barni Kiss\nTel.: +43 1');
+    assert.equal((await (await s.get('/api/compose-info')).json()).signature, 'Barni Kiss\nTel.: +43 1');
+  } finally {
+    s.close();
+  }
+});

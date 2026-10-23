@@ -8,6 +8,7 @@ import { renderDetail, renderLoading, renderEmpty } from './components/detail.js
 import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
 import { renderContacts } from './components/contacts-view.js';
+import { renderCompose } from './components/compose-view.js';
 import { readHash, writeHash } from './hash.js';
 import { createSearch } from './search-controller.js';
 import { createAttentionSignal, setupNotifyButton } from './attention-signal.js';
@@ -18,7 +19,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -261,8 +262,51 @@ function markRange(id) {
   renderLeft();
 }
 
+// --- Neue Mail: Ansicht statt Detail. Wer sie verlässt, ohne zu senden oder abzulegen, wird gefragt.
+function leaveCompose() {
+  if (!state.compose) return true;
+  if (state.compose.view.dirty() && !confirm('Die neue Mail ist noch nicht gesendet. Verlassen und verwerfen?')) return false;
+  state.compose = null;
+  return true;
+}
+
+async function openCompose(prefill = {}) {
+  if (!leaveCompose()) return;
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
+  state.contacts = null;
+  const info = await api.composeInfo().catch(() => ({ signature: '' }));
+  const handle = { view: null };
+  state.compose = handle;
+  handle.view = renderCompose($('detail'), {
+    signature: info.signature,
+    prefill,
+    suggest: (q, exclude) => api.suggest(q, exclude),
+    save: (payload) => api.action('compose-draft', payload),
+    send: async ({ draftId }) => {
+      try {
+        await api.action('compose-send', { draftId });
+        return true;
+      } catch (e) {
+        toast(e.message, { error: true });
+        return false;
+      }
+    },
+    discard: ({ draftId }) => api.action('compose-discard', { draftId }),
+    back: () => {
+      state.compose = null;
+      if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+      else clearDetail();
+    },
+  });
+}
+
 // --- Detail
 async function select(id, { keepView = true } = {}) {
+  if (!leaveCompose()) return;
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
@@ -309,7 +353,18 @@ async function select(id, { keepView = true } = {}) {
       suggest: (q, exclude) => api.suggest(q, exclude),
       outlookDraft: (payload) => api.action('outlook-draft', { id, ...payload }),
       outlookDraftDelete: () => api.action('outlook-draft-delete', { id }),
-      outlookSend: () => perform('outlook-send', { id }, { message: (r) => (r?.simulated ? 'Testmodus: Es wurde nichts gesendet. Die Mail liegt jetzt unter Done.' : 'Gesendet. Die Mail liegt jetzt unter Done.') }),
+      // Senden lässt die Mail offen; mit done wandert sie gleich nach Done (Auswahl springt dann zur nächsten Mail)
+      outlookSend: async ({ done = false } = {}) => {
+        if (done) return perform('outlook-send', { id, done: true }, { message: (r) => (r?.simulated ? 'Testmodus: Es wurde nichts gesendet. Die Mail liegt jetzt unter Done.' : 'Gesendet. Die Mail liegt jetzt unter Done.') });
+        try {
+          const r = await api.action('outlook-send', { id });
+          toast(r?.simulated ? 'Testmodus: Es wurde nichts gesendet.' : 'Gesendet. Die Mail bleibt offen.');
+          return true;
+        } catch (e) {
+          toast(e.message, { error: true });
+          return false;
+        }
+      },
       regenerate: async (opts = {}) => {
         await api.action('regenerate-draft', { id, ...opts }).catch(failed);
         await refreshDraft(id);
@@ -347,7 +402,7 @@ async function refreshDraft(id) {
 
 // --- Absender-Profil (ersetzt die Detailansicht, bis eine Mail gewählt oder "Zurück" geklickt wird)
 async function openProfile(address) {
-  if (!address) return;
+  if (!address || !leaveCompose()) return;
   state.learning = false;
   state.contacts = null;
   stopLearnPolling();
@@ -373,6 +428,7 @@ async function showProfile(scrollTop = 0) {
   if (state.profile !== address) return; // inzwischen etwas anderes geöffnet
   renderProfile($('detail'), data, {
     back: closeProfile,
+    compose: (address) => openCompose({ to: [address] }),
     openMail: (id) => showItem(id),
     change: async (payload) => {
       const top = $('detail').scrollTop;
@@ -429,6 +485,7 @@ async function showLearn() {
 }
 
 function openLearn() {
+  if (!leaveCompose()) return;
   state.profile = null;
   state.contacts = null;
   clearInterval(state.draftTimer);
@@ -486,6 +543,7 @@ async function showContacts(note = state.contacts?.note || '', { focusSearch = f
 }
 
 function openContacts() {
+  if (!leaveCompose()) return;
   clearInterval(state.draftTimer);
   stopLearnPolling();
   state.controller = null;
@@ -502,6 +560,7 @@ function closeContacts() {
 }
 
 // --- Kopfzeile
+$('compose-link').addEventListener('click', () => openCompose());
 $('contacts-link').addEventListener('click', (e) => {
   e.preventDefault();
   openContacts();

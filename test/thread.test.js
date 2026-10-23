@@ -95,3 +95,13 @@ test('Testmail-Verlauf aus verlauf.json: neueste zuerst, seitenweise, mit Signat
   const older = await t.page(p, { before: page.nextBefore, limit: 10 });
   assert.deepEqual([older.messages.length, older.hasMore], [2, false]);
 });
+
+test('Verlauf: die Signatur deiner eigenen Nachricht wird für neue Mails weitergegeben', async () => {
+  const seen = [];
+  const { t: _unused } = setup();
+  const n8n = { getThread: async () => ({ items: ITEMS, hasMore: false }) };
+  const drafts = { getMail: async () => ({ from: { emailAddress: helga }, toRecipients: [], ccRecipients: [], text: 'x' }), mailText: (m) => m.text };
+  const t = createThread({ n8n, drafts, attachments: { resolveImages: async (_p, text) => ({ text }) }, ownAddress: OWN, onOwnSignature: (s) => seen.push(s), log: () => {} });
+  await t.page(proposal({ mail_id: 'M3' }), { limit: 3 });
+  assert.deepEqual(seen, [SIG]);
+});
