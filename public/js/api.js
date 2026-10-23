@@ -15,6 +15,7 @@ export const api = {
   refresh: () => request('POST', '/api/refresh', {}),
   detail: (id) => request('GET', `/api/proposals/${id}`),
   search: (q, { content = true, names = true, text = true } = {}) => request('GET', `/api/search?q=${encodeURIComponent(q)}${content ? '' : '&content=0'}${names ? '' : '&names=0'}${text ? '' : '&text=0'}`),
+  thread: (id, { before = '', limit = 10 } = {}) => request('GET', `/api/proposals/${id}/thread?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   contact: (address) => request('GET', `/api/contacts/${encodeURIComponent(address)}`),
   historyLearn: () => request('GET', '/api/history-learn'),
   aiView: (id) => request('GET', `/api/proposals/${id}/ai-view`),

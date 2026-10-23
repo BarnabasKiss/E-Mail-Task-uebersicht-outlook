@@ -1,6 +1,6 @@
 # Datenschutz und Anonymisierung
 
-Grundsatz: **Claude sieht nie eine Datei oder ein Bild, nur Text, und der ist vorher anonymisiert.** Die App schreibt nie in Outlook.
+Grundsatz: **Claude sieht nie eine Datei oder ein Bild, nur Text, und der ist vorher anonymisiert.** In Outlook schreibt die App nur auf deinen Klick: „In Outlook ablegen“ und „Senden“ im Antwortentwurf (über n8n, siehe [Bedienung](bedienung.md#antwort-aus-der-app-entwurf-ablegen-und-senden)).
 
 ## Wo was liegt
 - **n8n** (Server): Zeile je Mail (Absender, Betreff, 400 Zeichen Vorschau, Bewertung, Status). Die Bewertung läuft über ein Modell

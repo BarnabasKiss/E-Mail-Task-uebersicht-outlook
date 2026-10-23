@@ -30,7 +30,7 @@ async function render(data, ctx = {}) {
   const box = document.createElement('div');
   document.body.append(box);
   const { h, calls } = handlers();
-  const controller = renderDetail(box, { proposal: proposal(), mail: mailData(), mailError: null, draft: null, headings: ['Kunden'], ...data }, { view: 'summary', ownAddress: 'barni@firma.at', handlers: { ...h, aiView: ctx.aiView }, ...ctx });
+  const controller = renderDetail(box, { proposal: proposal(), mail: mailData(), mailError: null, draft: null, headings: ['Kunden'], ...data }, { view: 'summary', ownAddress: 'barni@firma.at', handlers: { ...h, aiView: ctx.aiView, ...ctx.extra }, ...ctx });
   return { box, calls, controller };
 }
 
@@ -199,4 +199,148 @@ test('Entwurf: ohne Text im Feld sind nur Ablehnung und Neu erzeugen möglich; m
   btn('Vorige Version').click();
   await tick(10);
   assert.deepEqual(calls.at(-1), ['previousDraft']);
+});
+
+const addr = (name, address) => ({ name, address });
+const ME = addr('Barni Kiss', 'barni@firma.at');
+const HELGA = addr('Helga Brunner', 'helga@partner.at');
+const PAUL = addr('Paul Weber', 'paul@partner.at');
+const SIG = 'Barni Kiss\nProjektmanager\nTel.: +43 1 234 56 78';
+const page1 = {
+  messages: [
+    { id: 'M3', from: PAUL, to: [HELGA, ME], cc: [], sent: '2026-10-23T08:15:00Z', own: false, current: true, hasAttachments: true, text: 'Danke, passt so.', signature: '' },
+    { id: 'M2', from: ME, to: [HELGA], cc: [PAUL, addr('A', 'a@x.at'), addr('B', 'b@x.at')], sent: '2026-10-22T11:05:00Z', own: true, current: false, hasAttachments: false, text: 'Ja, schaue ich mir an.\n\nMit freundlichen Grüßen', signature: SIG },
+    { id: 'M1', from: HELGA, to: [ME], cc: [], sent: '2026-10-22T10:42:00Z', own: false, current: false, hasAttachments: false, text: 'Kannst du die Rechnung prüfen?', signature: '' },
+  ],
+  hasMore: true,
+  nextBefore: '2026-10-22T10:42:00Z',
+  degraded: false,
+};
+
+test('Verlauf: Nachrichten alt nach neu, eigene rechts, andere links in ihrer Farbe, kompakte Kopfzeile, Signatur als Dropdown', opts, async () => {
+  const { box } = await render({}, { view: 'message', extra: { thread: async () => page1 } });
+  await tick(30);
+  const rows = [...box.querySelectorAll('.bubble-row')];
+  assert.deepEqual(rows.map((r) => r.dataset.id), ['M1', 'M2', 'M3'], 'älteste zuerst');
+  assert.deepEqual(rows.map((r) => r.classList.contains('own')), [false, true, false]);
+  const from = (r) => r.querySelector('.b-from').textContent;
+  const rcpts = (r) => [...r.querySelectorAll('.b-rcpt')].map((x) => x.textContent);
+  assert.deepEqual([from(rows[0]), rcpts(rows[0])], ['Helga Brunner', ['Du']]);
+  assert.deepEqual([from(rows[1]), rcpts(rows[1])], ['Du', ['Helga Brunner', 'CC Paul Weber, A +1']], 'zwei Namen, der Rest als +n');
+  assert.deepEqual([from(rows[2]), rcpts(rows[2])], ['Paul Weber', ['Helga Brunner, Du']]);
+  assert.match(rows[1].querySelector('.b-rcpt[title*="b@x.at"]').getAttribute('title'), /Paul Weber <paul@partner\.at>/, 'alle Adressen im Tooltip');
+  const hue = (r) => r.querySelector('.bubble').getAttribute('style');
+  assert.match(hue(rows[0]), /--h:\d+/);
+  assert.notEqual(hue(rows[0]), hue(rows[2]), 'verschiedene Personen, verschiedene Farben');
+  assert.ok(rows[2].querySelector('.b-att'), 'Büroklammer bei Anhang');
+  assert.ok(rows[2].querySelector('.bubble.current'));
+  const sig = rows[1].querySelector('details.b-sig');
+  assert.ok(sig && !sig.open, 'Signatur ist zugeklappt');
+  assert.equal(sig.querySelector('pre').textContent, SIG);
+  assert.equal(rows[1].querySelector('.b-text').textContent, 'Ja, schaue ich mir an.\n\nMit freundlichen Grüßen');
+  assert.ok(!rows[0].querySelector('.b-sig'));
+});
+
+test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt sie davor; Rückfall zeigt einen Hinweis', opts, async () => {
+  const calls = [];
+  const older = { messages: [{ id: 'M0', from: HELGA, to: [ME], cc: [], sent: '2026-10-21T09:00:00Z', own: false, current: false, hasAttachments: false, text: 'Erste Frage', signature: '' }], hasMore: false, nextBefore: '2026-10-21T09:00:00Z', degraded: false };
+  const { box } = await render({}, { view: 'message', extra: { thread: async (before) => (calls.push(before), before ? older : page1) } });
+  await tick(30);
+  const btn = box.querySelector('.thread-older');
+  assert.ok(!btn.hidden);
+  btn.click();
+  await tick(30);
+  assert.deepEqual(calls, ['', '2026-10-22T10:42:00Z']);
+  assert.deepEqual([...box.querySelectorAll('.bubble-row')].map((r) => r.dataset.id), ['M0', 'M1', 'M2', 'M3']);
+  assert.ok(box.querySelector('.thread-older').hidden, 'nichts Älteres mehr');
+
+  const { box: b2 } = await render({}, { view: 'message', extra: { thread: async () => ({ ...page1, messages: [page1.messages[0]], hasMore: false, degraded: true }) } });
+  await tick(30);
+  assert.match(b2.querySelector('.thread .hint').textContent, /nur diese Nachricht/);
+});
+
+test('Layout: rechts steht die Aufgabe über dem Antwortentwurf, links Person, Anhänge und Verlauf', opts, async () => {
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo', previous: null } });
+  const left = box.querySelector('.d-left');
+  const right = box.querySelector('.d-right');
+  assert.ok(left.querySelector('.people-block') && left.querySelector('.msg') && !left.querySelector('.draft'));
+  assert.deepEqual([...right.children].map((c) => c.getAttribute('aria-label')), ['Aufgabe', 'Antwortentwurf']);
+});
+
+const reply = (o = {}) => ({ sender: 'helga@partner.at', only: { to: ['helga@partner.at'], cc: [] }, all: { to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] }, draft: null, ...o });
+const draftData = (r) => ({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo Helga,\n\nTermin passt.', previous: null }, reply: r });
+
+test('Senden: Empfänger vorbelegt, "Allen antworten" tauscht sie, In Outlook ablegen schickt Text, An und CC', opts, async () => {
+  const calls = [];
+  const { box } = await render(draftData(reply()), { extra: { outlookDraft: async (p) => (calls.push(p), { webLink: 'https://outlook/d', savedAt: '2026-10-23T09:00:00Z' }), outlookDraftDelete: async () => calls.push('delete'), outlookSend: async () => true } });
+  const [to, cc] = box.querySelectorAll('.send-addr');
+  assert.equal(to.value, 'helga@partner.at');
+  assert.equal(cc.value, '');
+  const radios = box.querySelectorAll('.send-mode input');
+  assert.equal(radios.length, 2);
+  radios[1].dispatchEvent(new w.Event('change'));
+  assert.equal(to.value, 'helga@partner.at, paul@partner.at');
+  assert.equal(cc.value, 'c@x.at');
+  [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Outlook ablegen')).click();
+  await tick(30);
+  assert.deepEqual(calls[0], { text: 'Hallo Helga,\n\nTermin passt.', to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] });
+  assert.match(box.querySelector('.send-status').textContent, /In Outlook abgelegt/);
+  assert.equal(box.querySelector('.send-status a').getAttribute('href'), 'https://outlook/d');
+  [...box.querySelectorAll('.send-status .link')].find((b) => b.textContent.includes('löschen')).click();
+  await tick(30);
+  assert.equal(calls.at(-1), 'delete');
+});
+
+test('Senden: legt ab, wartet mit Rückgängig, sendet dann; Rückgängig bricht ab', opts, async () => {
+  const calls = [];
+  const extra = { undoSeconds: 1, outlookDraft: async (p) => (calls.push('save'), { webLink: '', savedAt: '' }), outlookSend: async () => (calls.push('send'), true), outlookDraftDelete: async () => {} };
+  const { box } = await render(draftData(reply()), { extra });
+  const sendBtn = () => [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden');
+  sendBtn().click();
+  await tick(30);
+  assert.deepEqual(calls, ['save']);
+  assert.ok(!box.querySelector('.send-undo').hidden);
+  assert.match(box.querySelector('.send-undo').textContent, /an helga@partner\.at gesendet/);
+  assert.ok(sendBtn().disabled, 'während des Wartens nicht nochmal');
+  await tick(1200);
+  assert.deepEqual(calls, ['save', 'send']);
+
+  calls.length = 0;
+  const b2 = (await render(draftData(reply()), { extra })).box;
+  [...b2.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden').click();
+  await tick(30);
+  [...b2.querySelectorAll('.send-undo .btn')].find((b) => b.textContent.includes('Rückgängig')).click();
+  await tick(1300);
+  assert.deepEqual(calls, ['save'], 'nach Rückgängig wird nicht gesendet');
+  assert.match(b2.querySelector('.send-status').textContent, /Senden abgebrochen/);
+});
+
+test('Senden: gesperrt bei offenen Platzhaltern, ohne Empfänger und bei Testmails', opts, async () => {
+  const extra = { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
+  const withPlaceholder = { ...draftData(reply()), draft: { text: 'Termin: [BITTE ERGÄNZEN: Datum]', previous: null } };
+  const a = (await render(withPlaceholder, { extra })).box;
+  const send = (b) => [...b.querySelectorAll('.send-actions .btn')].find((x) => x.textContent.trim() === 'Senden');
+  assert.ok(send(a).disabled);
+  assert.match(send(a).title, /BITTE ERGÄNZEN/);
+  const b = (await render(draftData(reply({ only: { to: [], cc: [] } })), { extra })).box;
+  assert.ok(send(b).disabled);
+  assert.match(send(b).title, /Empfänger/);
+  const t = (await render({ ...draftData(reply()), proposal: proposal({ antwort_noetig: true, is_test: true }) }, { extra })).box;
+  assert.equal(t.querySelector('.send-box'), null);
+});
+
+test('Senden: Signatur aus dem Verlauf lässt sich anhängen', opts, async () => {
+  const calls = [];
+  const extra = { thread: async () => page1, outlookDraft: async (p) => (calls.push(p), {}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
+  const { box } = await render(draftData(reply()), { extra });
+  await tick(40); // der Verlauf wird im Hintergrund geladen
+  const sigBox = box.querySelector('.send-sig');
+  assert.ok(!sigBox.hidden, 'Signatur gefunden');
+  box.querySelector('.send-actions .btn').click();
+  await tick(30);
+  assert.equal(calls[0].text, `Hallo Helga,\n\nTermin passt.\n\n${SIG}`);
+  sigBox.querySelector('input').checked = false;
+  box.querySelector('.send-actions .btn').click();
+  await tick(30);
+  assert.equal(calls[1].text, 'Hallo Helga,\n\nTermin passt.');
 });

@@ -1,8 +1,9 @@
 import { el, toast } from '../util.js';
 import { icon } from '../icons.js';
+import { createSendBox } from './send-box.js';
 
 // Antwortentwurf: editierbar, kopierbar, neu erzeugbar, als Variante (kürzer, förmlicher, freundlicher, Ablehnung) und mit Hinweis.
-// Ablage heute: Zwischenablage. Ein späteres Modul (z. B. Outlook-Entwurf) ersetzt nur den Kopieren-Knopf.
+// Ablage: Zwischenablage, als Entwurf in Outlook oder gleich senden (send-box.js, nicht bei Testmails und ohne Outlook-Verbindung).
 const VARIANTS = [
   { id: 'kuerzer', label: 'Kürzer', title: 'Den Text im Feld deutlich kürzen', needsText: true },
   { id: 'foermlicher', label: 'Förmlicher', title: 'Den Text im Feld förmlicher formulieren', needsText: true },
@@ -11,7 +12,7 @@ const VARIANTS = [
 ];
 const VARIANT_LABEL = Object.fromEntries(VARIANTS.map((v) => [v.id, v.label.toLowerCase()]));
 
-export function createDraftPanel({ draft, error, isTest, onRegenerate, onPrevious }) {
+export function createDraftPanel({ draft, error, isTest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, undoSeconds }) {
   const area = el('textarea', { class: 'draft-text', rows: 7, 'aria-label': 'Antwortentwurf', placeholder: 'Der Entwurf erscheint hier …' });
   const status = el('span', { class: 'draft-status' });
   const copy = el('button', { class: 'btn', type: 'button', onclick: copyText }, icon('copy', 15), el('span', {}, 'Kopieren'));
@@ -35,6 +36,11 @@ export function createDraftPanel({ draft, error, isTest, onRegenerate, onPreviou
   const previous = el('button', { class: 'btn small ghost', type: 'button', title: 'Zur vorigen Version zurück (nochmal klicken: wieder vor)', onclick: goBack }, icon('undo', 14), 'Vorige Version');
   const tools = el('div', { class: 'draft-tools' }, ...variantButtons.map((x) => x.btn), hint, previous);
 
+  const sendBox =
+    reply && !isTest && onOutlookDraft
+      ? createSendBox({ reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, undoSeconds })
+      : null;
+
   const node = el(
     'section',
     { class: 'card draft', 'aria-label': 'Antwortentwurf' },
@@ -42,6 +48,7 @@ export function createDraftPanel({ draft, error, isTest, onRegenerate, onPreviou
     errorBox,
     tools,
     area,
+    sendBox?.node,
   );
 
   let current = { draft, error };
@@ -93,6 +100,7 @@ export function createDraftPanel({ draft, error, isTest, onRegenerate, onPreviou
   function render() {
     const { draft: d, error: e } = current;
     copy.disabled = !area.value.trim();
+    sendBox?.update();
     regen.disabled = busy;
     for (const { v, btn } of variantButtons) btn.disabled = busy || (v.needsText && !area.value.trim());
     hint.disabled = busy;
@@ -118,6 +126,8 @@ export function createDraftPanel({ draft, error, isTest, onRegenerate, onPreviou
 
   return {
     node,
+    /** Der Verlauf ist geladen: die Signatur deiner letzten Nachricht ist jetzt bekannt. */
+    refresh: () => sendBox?.update(),
     update(next) {
       current = next;
       if (next.draft) area.value = next.draft.text;

@@ -271,3 +271,18 @@ test('Absender-Profil: Zahlen aus den Mails, Regeln und Gedächtnis; Änderungen
     s.close();
   }
 });
+
+test('Verlauf und Antwortvorschläge: Schnittstelle liefert den Verlauf, die Detailansicht die Empfänger für Antworten', async () => {
+  const s = await start();
+  try {
+    const thread = await (await s.get('/api/proposals/1/thread?limit=5')).json();
+    assert.equal(thread.degraded, true, 'ohne n8n-Verlauf bleibt die geöffnete Mail');
+    assert.equal(thread.messages[0].current, true);
+    const detail = await (await s.get('/api/proposals/1')).json();
+    assert.deepEqual(detail.reply.only, { to: ['helga@partner.at'], cc: [] });
+    assert.deepEqual(detail.reply.all, { to: ['helga@partner.at'], cc: ['paul@partner.at'] });
+    assert.equal(detail.reply.draft, null);
+  } finally {
+    s.close();
+  }
+});

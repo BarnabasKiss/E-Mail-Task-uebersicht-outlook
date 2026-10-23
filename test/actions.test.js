@@ -154,3 +154,57 @@ test('Entwurf: eine Version zurück tauscht Entwurf und Vorversion', async () =>
   s.store.set('drafts', 'M1', { text: 'x', previous: null });
   await assert.rejects(actions['draft-previous'].run(s.services, { id: 1 }), /keine vorige Version/);
 });
+
+// --- Entwurf in Outlook ablegen und senden
+function outlookSetup() {
+  const s = setup({ neu: [row(1, { antwort_noetig: true })] });
+  const sent = [];
+  s.n8n.saveDraft = async (a) => (sent.push(['saveDraft', a]), { draftId: `D${sent.length}-xxxxxxxxxxxxxxxxxxxx`, webLink: 'https://outlook/d' });
+  s.n8n.deleteDraft = async (id) => sent.push(['deleteDraft', id]);
+  s.n8n.sendDraft = async (id) => sent.push(['sendDraft', id]);
+  s.services.drafts = { getMail: async () => ({ from: { emailAddress: { name: 'Helga', address: 'h@x.at' } }, toRecipients: [], ccRecipients: [] }) };
+  return { ...s, sent };
+}
+
+test('Outlook-Entwurf: legt ihn an (sendet nichts), prüft Empfänger, ersetzt einen früheren Entwurf', async () => {
+  const s = outlookSetup();
+  await s.scheduler.refresh();
+  const out = await actions['outlook-draft'].run(s.services, { id: 1, text: ' Hallo\n\nja. ', to: ['H@X.at', 'h@x.at'], cc: ['p@x.at', 'h@x.at'] });
+  assert.equal(out.webLink, 'https://outlook/d');
+  assert.deepEqual(s.sent[0], ['saveDraft', { id: 'M1', text: 'Hallo\n\nja.', to: ['h@x.at'], cc: ['p@x.at'] }]);
+  assert.equal(s.store.get('outlookDrafts', 'M1').draftId, out.draftId);
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'neu', to: ['h@x.at'] });
+  assert.deepEqual(s.sent.map((c) => c[0]), ['saveDraft', 'deleteDraft', 'saveDraft'], 'der alte Entwurf wird zuerst gelöscht');
+  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 1, text: 'x', to: ['kaputt'] }), /Ungültige Adresse/);
+  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 1, text: 'x', to: [] }), /Empfänger/);
+  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 1, text: ' ', to: ['h@x.at'] }), /leer/);
+});
+
+test('Outlook-Entwurf: Testmails gehen nicht, Löschen entfernt nur den gemerkten Entwurf', async () => {
+  const s = outlookSetup();
+  s.scheduler.state.items = [row(2, { mail_id: 'TEST-1' }), row(1)];
+  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 2, text: 'x', to: ['h@x.at'] }), /Testnachrichten/);
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'x', to: ['h@x.at'] });
+  const draftId = s.store.get('outlookDrafts', 'M1').draftId;
+  assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 1 }), { deleted: true });
+  assert.equal(s.sent.at(-1)[1], draftId);
+  assert.equal(s.store.get('outlookDrafts', 'M1'), undefined);
+  assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 1 }), { deleted: false });
+});
+
+test('Senden: nur der gemerkte Entwurf, nicht mit offenen Platzhaltern; danach beantwortet und lernbereit', async () => {
+  const s = outlookSetup();
+  await s.scheduler.refresh();
+  await assert.rejects(actions['outlook-send'].run(s.services, { id: 1 }), /keinen abgelegten Entwurf/);
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'Hallo\n\n[BITTE ERGÄNZEN: Termin]', to: ['h@x.at'] });
+  await assert.rejects(actions['outlook-send'].run(s.services, { id: 1 }), /BITTE ERGÄNZEN/);
+  assert.ok(!s.sent.some((c) => c[0] === 'sendDraft'), 'nichts gesendet');
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'Hallo\n\nTermin passt.', to: ['h@x.at'] });
+  const draftId = s.store.get('outlookDrafts', 'M1').draftId;
+  assert.deepEqual(await actions['outlook-send'].run(s.services, { id: 1 }), { sent: true });
+  assert.deepEqual(s.sent.at(-1), ['sendDraft', draftId]);
+  assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [['setStatus', 1, 'beantwortet']]);
+  assert.equal(s.store.get('replies', 'M1').reply.body, 'Hallo\n\nTermin passt.');
+  assert.equal(s.store.get('outlookDrafts', 'M1'), undefined);
+  assert.ok(s.scheduler.state.archive.some((p) => p.id === 1 && p.status === 'beantwortet'));
+});

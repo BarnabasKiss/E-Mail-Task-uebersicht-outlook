@@ -1,5 +1,7 @@
-// Die Detailansicht rechts: Kopf mit Aktionen, Absender und Empfänger, Anhänge, Zusammenfassung/Nachricht, Aufgabe und Antwortentwurf.
-// Der Mailtext selbst steht in mail-body.js, die Anhangsleiste in attachments-box.js.
+// Die Detailansicht rechts: Kopf mit Aktionen, darunter bei breitem Bildschirm zwei Spalten.
+//  links:  Absender und Empfänger, Anhänge, Zusammenfassung/Verlauf
+//  rechts: Aufgabe (oben) und Antwortentwurf, bleibt beim Scrollen stehen
+// Bei schmalem Bildschirm steht alles untereinander. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
 import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { createTaskRow } from './task-row.js';
@@ -37,7 +39,23 @@ export function renderDetail(container, data, ctx) {
 
   // Erledigtes hat keine Aufgabe und keinen Entwurf mehr; dafür gibt es "Zurückholen".
   const taskRow = done ? null : createTaskRow({ proposal: p, headings, isTest: p.is_test, onAccept: handlers.accept });
-  const draftPanel = !done && p.antwort_noetig ? createDraftPanel({ draft, error: p.entwurf_fehler, isTest: p.is_test, onRegenerate: handlers.regenerate, onPrevious: handlers.previousDraft }) : null;
+  // Signatur deiner letzten Nachricht im Verlauf (für "Meine Signatur anhängen"); der Verlauf wird dafür im Hintergrund geladen
+  let bodyView = null;
+  const draftPanel = !done && p.antwort_noetig
+    ? createDraftPanel({
+        draft,
+        error: p.entwurf_fehler,
+        isTest: p.is_test,
+        reply: data.reply,
+        ownSignature: () => bodyView?.ownSignature() || '',
+        onRegenerate: handlers.regenerate,
+        onPrevious: handlers.previousDraft,
+        onOutlookDraft: handlers.outlookDraft,
+        onOutlookDraftDelete: handlers.outlookDraftDelete,
+        onSend: handlers.outlookSend,
+        undoSeconds: handlers.undoSeconds,
+      })
+    : null;
 
   // --- Kopf mit Aktionen oben rechts
   // Nur Symbole mit Tooltip: "In Outlook öffnen" und "Löschen"
@@ -126,9 +144,10 @@ export function renderDetail(container, data, ctx) {
       el('button', { class: 'link', type: 'button', onclick: handlers.revertReview }, 'Zurücksetzen'),
     ),
   );
-  const body = createMailBody({ proposalId: p.id, mail, mailError, handlers });
+  const body = createMailBody({ proposalId: p.id, mail, mailError, handlers, ownAddress: ctx.ownAddress });
+  bodyView = body;
   const tabSummary = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('summary') }, icon('sparkle', 14), 'Zusammenfassung');
-  const tabMessage = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('message') }, icon('file', 14), 'Nachricht');
+  const tabMessage = el('button', { class: 'seg-btn', type: 'button', role: 'tab', onclick: () => setView('message') }, icon('file', 14), 'Verlauf');
   function setView(v) {
     summaryView.hidden = v !== 'summary';
     body.node.hidden = v !== 'message';
@@ -141,8 +160,10 @@ export function renderDetail(container, data, ctx) {
   const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg-row' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), body.eye), summaryView, body.node);
   setView(ctx.view === 'message' ? 'message' : 'summary');
 
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, message, taskRow?.node, draftPanel?.node));
+  const right = taskRow?.node || draftPanel?.node ? el('div', { class: 'd-right' }, taskRow?.node, draftPanel?.node) : null;
+  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, el('div', { class: 'd-main' }, el('div', { class: 'd-left' }, people, attachmentsBox, message), right)));
   container.scrollTop = 0;
+  if (draftPanel) body.preload().then(() => draftPanel.refresh());
 
   return {
     setMatch: (m) => taskRow?.setMatch(m),

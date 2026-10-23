@@ -9,6 +9,9 @@ import reviewRevert from './review-revert.js';
 import draftPrevious from './draft-previous.js';
 import contact from './contact.js';
 import historyLearn from './history-learn.js';
+import outlookDraft from './outlook-draft.js';
+import outlookDraftDelete from './outlook-draft-delete.js';
+import outlookSend from './outlook-send.js';
 import bulk from './bulk.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, bulk].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, bulk].map((a) => [a.name, a]));

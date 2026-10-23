@@ -59,10 +59,15 @@ function initials(name, fallback = '?') {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 
-export function avatar(name, address, size = 32) {
-  const key = String(address || name || '');
+/** Farbton (0 bis 359) für eine Person, immer derselbe für dieselbe Adresse. */
+export function hueOf(key) {
   let h = 0;
-  for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  for (const ch of String(key || '')) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
+}
+
+export function avatar(name, address, size = 32) {
+  const h = hueOf(address || name);
   return el('span', { class: 'avatar', style: `--h:${h};width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px`, 'aria-hidden': 'true' }, initials(name || address));
 }
 

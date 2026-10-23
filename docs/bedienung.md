@@ -44,8 +44,11 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
     mit Rückfrage. In Outlook bleibt die Mail unverändert.
 - **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
   als Download; ✦ = Claude liest den Text daraus mit).
-- **Zusammenfassung / Nachricht** per Umschalter. *Zusammenfassung* ist ein Absatz aus Zusammenfassung und Begründung. *Nachricht* zeigt den Mailtext
-  mit seinen Bildern. Das **Auge** darüber schaltet zwischen *Original* und *Anonymisiert* um (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
+- **Zusammenfassung / Verlauf** per Umschalter. *Zusammenfassung* ist ein Absatz aus Zusammenfassung und Begründung. *Verlauf* zeigt die Konversation als Nachrichten
+  (siehe unten). Das **Auge** darüber schaltet zwischen *Original* und *Anonymisiert* um; anonymisiert zeigt es die geöffnete Mail so, wie Claude sie bekäme
+  (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
+- **Aufgabe** und **Antwortentwurf** stehen bei breitem Bildschirm (Detailbereich ab etwa 1080 px) in einer **rechten Spalte**, die beim Scrollen stehen bleibt, die Aufgabe oben,
+  der Entwurf darunter. Links stehen Absender, Anhänge, Zusammenfassung und Verlauf. Bei schmalem Bildschirm steht alles untereinander.
 - **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**.
   Die Mail bleibt danach in „Offen“; die Zeile zeigt „✓ Aufgabe übernommen“ mit „Weitere Aufgabe“.
 - **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Darunter die Werkzeuge:
@@ -54,6 +57,27 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
   - **Hinweis**: Freitext für diese Antwort („sag, dass ich nächste Woche Zeit habe“), wirkt bei jeder Variante und bei „Neu erzeugen“ (Enter im Feld erzeugt sofort neu).
   - **Vorige Version** geht einen Schritt zurück; nochmal klicken stellt den Entwurf wieder her.
   - Anrede und Gruß setzt die App aus dem [Absender-Gedächtnis](#absender-profil-und-gedächtnis) ein, wenn sie für den Absender bekannt sind.
+
+## Verlauf als Nachrichten
+Der Tab **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, die neueste unten (zunächst die letzten 10, darüber **Ältere Nachrichten laden**).
+- **Deine Nachrichten stehen rechts, die der anderen links.** Jede andere Person hat ihre eigene Farbe (immer dieselbe für dieselbe Adresse), die Nachricht, die du geöffnet hast, ist umrandet.
+- **Kopfzeile je Nachricht:** `● Absender → An: Namen · CC: Namen` und die Zeit, in einer Zeile. Mehr als zwei Namen stehen als „+n“, alle Adressen im Tooltip. Du selbst heißt „Du“,
+  eine Büroklammer zeigt einen Anhang.
+- **Ohne zitierten Verlauf:** Outlook hängt in jede Antwort die alten Mails an. Die App schneidet das ab, weil jede frühere Nachricht ohnehin selbst im Verlauf steht.
+- **Signaturen** erkennt die App selbst (Trennzeile „-- “, Grußformel mit Kontaktblock darunter, „Gesendet von meinem iPhone“, und ein Ende, das bei demselben Absender in mehreren Nachrichten gleich ist).
+  Sie stehen unter der Nachricht im zugeklappten Dropdown **Signatur**. Im Zweifel bleibt Text stehen: Es wird nie etwas gelöscht, nur ausgeblendet.
+- Kann der Verlauf nicht geladen werden (oder bei Testmails), zeigt die App nur die geöffnete Mail und sagt es.
+
+## Antwort aus der App: Entwurf ablegen und senden
+Unter dem Antwortentwurf (nicht bei Testmails):
+- **An / CC** sind vorbelegt: „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen). Beide Felder lassen sich ändern.
+- **Meine Signatur anhängen:** erscheint, sobald im Verlauf eine eigene Signatur erkannt wurde, und hängt sie als Text an (Formatierung und Logo gehen dabei verloren).
+- **In Outlook ablegen** legt die Antwort als Entwurf in Outlook an (mit dem zitierten Verlauf wie bei einer normalen Antwort). Gesendet wird nichts. Danach stehen dort
+  „In Outlook öffnen“ und „Entwurf dort löschen“; legst du erneut ab, ersetzt der neue Entwurf den alten.
+- **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **10 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook). Danach gilt die Mail als beantwortet
+  und liegt in Done, und die App lernt aus dem gesendeten Text wie sonst auch.
+- **Gesperrt** sind „Senden“ bei offenem `[BITTE ERGÄNZEN …]`, ohne Empfänger und bei leerem Text. Anhänge lassen sich über die App nicht mitschicken.
+- Dafür braucht die n8n-Verbindung zu Outlook die Rechte *Mail.ReadWrite* und *Mail.Send* (siehe [n8n/README.md](../n8n/README.md)).
 
 ## Tastatur
 `/` Suche · `j`/`k` oder Pfeile nächste/vorherige Mail · `e` in Done ablegen (in Done: zurückholen) · `Entf` löschen · `Esc` hebt eine Markierung auf.

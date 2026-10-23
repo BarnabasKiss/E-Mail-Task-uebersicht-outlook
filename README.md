@@ -2,7 +2,7 @@
 
 Lokaler Mini-Mailclient. Zeigt die in n8n bewerteten Outlook-Mails wie einen Posteingang, übernimmt Aufgaben nach Obsidian
 (`📋 3 Aufgaben.md`), schreibt Antwortentwürfe über das lokale `claude -p`, lernt aus deinen gesendeten Antworten und durchsucht Mails samt
-Anhängen. Sie schreibt nie in Outlook, und Claude sieht nie eine Datei, nur anonymisierten Text.
+Anhängen. In Outlook schreibt sie nur auf deinen Klick (Antwort als Entwurf ablegen oder senden), und Claude sieht nie eine Datei, nur anonymisierten Text.
 
 ```
 Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─► n8n "Mail-App Schnittstelle" ◄─► diese App (localhost)
@@ -16,6 +16,9 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
   Wichtig, Anhang mit Formaten, Aufgabe, Frist.
 - **Aufgaben und Entwürfe:** Aufgabe mit Überschrift-Vorschlag in die Obsidian-Liste übernehmen, Antwortentwurf im Hintergrund erzeugen
   (pseudonymisiert), als Variante (kürzer, förmlicher, freundlicher, Ablehnung) und mit Hinweis neu erzeugen.
+- **Verlauf wie ein Chat:** die Nachrichten einer Konversation, deine rechts, die der anderen links in je einer Farbe, mit kompakter Kopfzeile (wer an wen, CC)
+  und Signaturen als Dropdown. Bei breitem Bildschirm stehen Aufgabe und Antwortentwurf in einer rechten Spalte.
+- **Antwort aus der App:** Empfänger prüfen, als Entwurf in Outlook ablegen oder nach 10 Sekunden Bedenkzeit senden.
 - **Sammelaktionen:** mehrere Mails mit Strg + Klick markieren und per Button gemeinsam in Done legen, zurückstellen, löschen oder ihre Absender ignorieren.
 - **Absender-Gedächtnis und Profil:** Du/Sie, Anrede, Gruß, Sprache und Notizen je Person und Firma, gelernt aus deinen gesendeten Antworten und
   aus vielen gesendeten Mails auf einmal (anonymisiert), im Absender-Profil prüf- und änderbar.

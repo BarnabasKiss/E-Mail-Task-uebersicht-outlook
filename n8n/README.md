@@ -15,7 +15,7 @@ Dazu in n8n anlegen (Namen sind frei wählbar):
 
 | Credential | Typ in n8n | Wofür |
 |---|---|---|
-| Outlook | "Microsoft Outlook OAuth2 API" | Trigger, Mail holen, Verlauf suchen. Lesen genügt (Mail.Read). Die App-Registrierung erledigt bei Firmenkonten meist die IT. |
+| Outlook | "Microsoft Outlook OAuth2 API" | Trigger, Mail holen, Verlauf suchen. Zum Lesen genügt *Mail.Read*; für „In Outlook ablegen“ und „Senden“ aus der App braucht die Verbindung zusätzlich *Mail.ReadWrite* und *Mail.Send*. Die App-Registrierung erledigt bei Firmenkonten meist die IT. |
 | Modell | "OpenAI API" (OpenAI-kompatibel) | Bewertung. Im Beispiel OpenRouter mit EU-Routing. Basis-URL, Schlüssel und Modell sind eigene Werte. |
 
 Die Mini-App schreibt **nie** in Outlook. n8n liest dort nur.
@@ -84,7 +84,7 @@ Aktivieren (*Publish*). **Änderungen wirken in n8n erst nach erneutem Veröffen
 
 ## 3. Workflow "Mail-App Schnittstelle"
 
-Ein einziger Webhook, den nur die Mini-App aufruft. Er liest und ändert nur die Tabelle und liest Outlook, er schreibt nie in Outlook.
+Ein einziger Webhook, den nur die Mini-App aufruft. Er liest und ändert nur die Tabelle und liest Outlook, er schreibt nur auf Klick in der App in Outlook (`saveDraft`, `sendDraft`, `deleteDraft`, siehe unten).
 
 **Namen der Nodes:** Der Webhook-Node muss **`Mail-App Anfrage`** heißen, denn Ausdrücke und Code-Nodes verweisen mit
 `$('Mail-App Anfrage')` auf ihn. Ebenso heißt in Workflow 1 der Code-Node **`Pseudonymisieren`** (der Node "Rückübersetzen" greift darauf zu).
@@ -100,7 +100,7 @@ Ablauf:
 
 1. **Token gültig?** – Node "If". `{{ $json.headers['x-app-token'] }}` *is equal to* dein Token (Groß/Klein beachten).
    *False* → Respond to Webhook, JSON `{ "error": "unauthorized" }`, Response Code **401**.
-2. **Aktion wählen** – Node "Switch", Modus *Rules*, **acht** Regeln (`list`, `setStatus`, `getMail`, `hasReply`, `delete`, `listAttachments`, `getAttachment`, `listSent`) auf `{{ $json.body.action }}` (*String equals*), Ausgabe-Namen wie die Aktion,
+2. **Aktion wählen** – Node "Switch", Modus *Rules*, **zwölf** Regeln (`list`, `setStatus`, `getMail`, `hasReply`, `delete`, `listAttachments`, `getAttachment`, `listSent`, `saveDraft`, `deleteDraft`, `sendDraft`, `getThread`) auf `{{ $json.body.action }}` (*String equals*), Ausgabe-Namen wie die Aktion,
    plus Ausgang **Fallback** (*Extra*): Respond to Webhook, JSON `{ "error": "unknown action" }`, Code **400**.
 
 | Aktion | Body | Was passiert | Antwort |
@@ -112,6 +112,9 @@ Ablauf:
 | `delete` | `id` (Zeilen-ID) | **Data table → Delete row(s)**: Bedingung `id` *equals* `{{ $json.body.id }}`, *Must match* **all conditions**. Respond JSON. | `{ "ok": true, "deleted": true }` |
 | `listAttachments` | `id` (Outlook-ID) | **Microsoft Outlook → Message Attachment → Get Many**: *Message ID* = `{{ $('Mail-App Anfrage').item.json.body.id }}` (Modus *By ID*), *Return All*, Felder `contentType, isInline, name, size`, **Always Output Data** an. Danach Code-Node [`code/anhangliste-bauen.js`](code/anhangliste-bauen.js), dann Respond *First Incoming Item*. | `{ "items": [ { id, name, contentType, size, isInline } ] }` |
 | `listSent` | `limit` (höchstens 25), `before` (ISO-Zeit `…Z`, optional: nur ältere), `scope` (`sent` = Ordner Gesendete Elemente, `all` = eigene Mails in Archiv, Posteingang und Unterordnern) | Node **Code** [`code/gesendet-filter-bauen.js`](code/gesendet-filter-bauen.js) (eigene Adresse eintragen) baut den Filter, dann **Microsoft Outlook → Message → Get Many**: *Limit* `{{ $json.limit }}`, *Read Status* **Both**, *Folders to Include* `{{ $json.folders }}`, *Filter Query* `{{ $json.filter }}`, Felder `from, body, subject, sentDateTime, isDraft, conversationId, toRecipients, ccRecipients`, **Always Output Data** an. Danach Code-Node [`code/gesendete-bauen.js`](code/gesendete-bauen.js), dann Respond *First Incoming Item*. Nur lesend; die App blättert damit durch deine gesendeten Mails (siehe [Lernen aus Gesendetem](../docs/bedienung.md#aus-gesendeten-mails-lernen)). | `{ "items": [ { id, conversationId, subject, sentDateTime, to, cc, body } ] }`, neueste zuerst |
+| `getThread` | `conversationId`, `limit` (höchstens 25), `before` (ISO-Zeit, nur ältere) | Code-Node „Verlauf-Filter bauen“ prüft die Konversations-ID und baut `conversationId eq '…'`, dann **Microsoft Outlook → Message → Get Many** (Limit 50, Read Status *Both*, Felder `from, toRecipients, ccRecipients, subject, sentDateTime, receivedDateTime, body, isDraft, conversationId, hasAttachments`), Fehlerausgang an den Outlook-Fehler-Node. Danach Code [`code/verlauf-bauen.js`](code/verlauf-bauen.js), Respond *First Incoming Item*. | `{ items: [ { id, from, to, cc, subject, sent, hasAttachments, body } ], hasMore, total }`, neueste zuerst |
+| `saveDraft` | `id` (Outlook-ID der Mail), `text`, `to` (Liste), `cc` (Liste) | Code [`code/entwurf-vorbereiten.js`](code/entwurf-vorbereiten.js) prüft und macht HTML aus dem Text. Dann **Outlook → Message → Reply** mit *Reply to Sender Only* **an**, *Message* `{{ $json.comment }}`, Option *Save as Draft* **an** (sendet nichts). Dann **Outlook → Draft → Update** setzt `toRecipients` und `ccRecipients` aus „Entwurf vorbereiten“. Danach Code „Entwurf-Antwort bauen“ (`draftId`, `webLink`, `to`, `cc`), Respond *First Incoming Item*. | `{ draftId, webLink, isDraft, to, cc }` |
+| `deleteDraft`, `sendDraft` | `draftId` | Code „Entwurf-ID prüfen“ (Format), **Message → Get** (Feld `isDraft`), IF `isDraft` ist `true` (sonst Respond 400 `{"error":"kein Entwurf"}`), Switch nach `action` auf **Draft → Delete** beziehungsweise **Draft → Send**, beide enden in „OK senden“. So lässt sich über die Schnittstelle nie eine normale Mail löschen oder senden. | `{ "ok": true }` |
 | `getAttachment` | `id` (Outlook-ID), `attachmentId` | **Microsoft Outlook → Message Attachment → Download**: *Message ID* wie oben, *Attachment ID* = `{{ $('Mail-App Anfrage').item.json.body.attachmentId }}` (Modus *By ID*), *Put Output in Field* `data`. Danach Code-Node [`code/anhang-kodieren.js`](code/anhang-kodieren.js), dann Respond *First Incoming Item*. | `{ name, contentType, size, contentBase64 }` |
 
 Beide Anhang-Aktionen haben in der Switch-Regel eine zweite Bedingung "ID nicht leer" (`getAttachment` zusätzlich "attachmentId nicht leer"), damit eine Anfrage ohne ID im Fallback (400) landet.

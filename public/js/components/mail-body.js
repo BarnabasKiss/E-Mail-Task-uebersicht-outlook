@@ -1,18 +1,21 @@
 import { el } from '../util.js';
 import { icon } from '../icons.js';
 import { textWithImages, maskedNodes, autosize } from './mail-text.js';
+import { createThread } from './thread.js';
 
 /**
- * Die Ansicht "Nachricht": der Mailtext mit seinen Bildern und ein Auge zum Umschalten.
- *  Original     = die Mail, Bilder an ihrer Stelle.
+ * Die Ansicht "Verlauf": die Nachrichten der Konversation (thread.js) und ein Auge zum Umschalten. Ohne Verlauf (handlers.thread fehlt,
+ * Vorschau statt Outlook) der Mailtext allein.
+ *  Original     = der Verlauf, die geöffnete Mail mit ihren Bildern an ihrer Stelle.
  *  Anonymisiert = genau das, was Claude bekäme: maskierter Mailtext mit markierten Platzhaltern, Zuordnung als zugeklapptes Dropdown,
  *                 Bilder mit Tooltip auf den maskierten Bildtext, Text aus Anhängen und das Ergebnis der Prüfung.
  * Der Text aus Bildern und Anhängen kommt nachgeladen (handlers.aiView, die OCR kann dauern), die Mail erscheint sofort.
  *
- * @returns {{ node: HTMLElement, eye: HTMLElement|null, show(): void }}
+ * @returns {{ node: HTMLElement, eye: HTMLElement|null, show(): void, preload(): Promise, ownSignature(): string }}
  *   node = die Ansicht, eye = Umschalter (null, wenn nichts zu anonymisieren ist), show() = beim Einblenden aufrufen
  */
-export function createMailBody({ proposalId, mail, mailError, handlers }) {
+export function createMailBody({ proposalId, mail, mailError, handlers, ownAddress = '' }) {
+  const thread = handlers.thread && mail.source === 'outlook' ? createThread({ proposalId, ownAddress, loadPage: handlers.thread }) : null;
   let ai = null; // Antwort von /ai-view, sobald da
   let showMasked = false;
   let aiRequested = false;
@@ -35,7 +38,7 @@ export function createMailBody({ proposalId, mail, mailError, handlers }) {
     return textWithImages(proposalId, src.text, { resolve: (n) => ai.imageIds[Number(n) - 1], tip, plain: (t) => maskedNodes(t, src.map) });
   };
 
-  const mailText = el('pre', { class: 'mailtext' }, original());
+  const mailText = el('pre', { class: 'mailtext', hidden: !!thread }, original());
   const fitMailText = autosize(mailText);
   const legend = el('details', { class: 'mask-legend', hidden: true }); // Dropdown, standardmäßig zu
   const aiBox = el('section', { class: 'ai-items', 'aria-label': 'Anhänge und Prüfung', hidden: true });
@@ -71,6 +74,10 @@ export function createMailBody({ proposalId, mail, mailError, handlers }) {
     showMasked = on;
     const src = sendable();
     const entries = Object.entries(src.map);
+    if (thread) {
+      thread.node.hidden = on;
+      mailText.hidden = !on;
+    }
     if (on) {
       mailText.replaceChildren(...maskedView(src));
       legend.replaceChildren(
@@ -111,6 +118,7 @@ export function createMailBody({ proposalId, mail, mailError, handlers }) {
     { class: 'msg-full', hidden: true },
     mailError && el('div', { class: 'inline-error' }, icon('alert', 16), el('span', {}, `${mailError} Angezeigt wird die Vorschau.`), el('button', { class: 'link', type: 'button', onclick: handlers.reload }, 'Erneut laden')),
     mail.source === 'vorschau' && !mailError ? el('p', { class: 'hint' }, 'Nur Vorschau verfügbar.') : null,
+    thread?.node,
     mailText,
     legend,
     aiBox,
@@ -120,8 +128,11 @@ export function createMailBody({ proposalId, mail, mailError, handlers }) {
     node,
     eye,
     show() {
+      thread?.load();
       loadAi();
       requestAnimationFrame(fitMailText);
     },
+    preload: () => thread?.load() ?? Promise.resolve(),
+    ownSignature: () => thread?.ownSignature() ?? '',
   };
 }
