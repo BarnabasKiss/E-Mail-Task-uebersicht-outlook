@@ -42,7 +42,7 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
     „Absender künftig ignorieren“ (Eintrag in `Mail-Regeln.md`).
   - **Löschen** entfernt die Konversation vollständig aus der Übersicht (Tabellenzeile in n8n und alles Lokale, auch aus Done), nicht rückgängig,
     mit Rückfrage. In Outlook bleibt die Mail unverändert.
-- **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
+- **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (**Darüberfahren zeigt eine Vorschau**: bei Bildern das Bild, bei PDFs die erste Seite, bei Text und Office-Dateien den Textanfang; PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
   als Download; ✦ = Claude liest den Text daraus mit).
 - **Aufbau von oben nach unten (eine Spalte):** Absender und Empfänger, Anhänge, **Aufgabe** (immer eine Zeile), **Zusammenfassung** (immer sichtbar), der **Verlauf** als eigene Sektion,
   die du auf- und zuklappen kannst (zunächst zu), und darunter die **Antwort** (Entwurf, Empfänger, Ablegen, Senden).
@@ -121,7 +121,8 @@ Das Menü **Optionen ▾** oben rechts fasst **Kontakte**, **Signatur**, **Lerne
 ## Signatur
 **Optionen → Signatur** ist der Text, der bei Antworten und neuen Mails unter deinen Text gesetzt wird (mit dem Haken „Meine Signatur anhängen“ pro Mail abwählbar).
 - **Speichern** macht ihn zu deiner festen Signatur; sie gilt vor allem anderen. **Keine Signatur** sendet Mails ohne. **Automatisch erkennen** nimmt wieder die Signatur aus deiner letzten Nachricht im Verlauf (so war es bisher, sie dient auch als Vorlage im Feld).
-- Die Signatur liegt nur in der App (`state.json`), nichts davon wird in Outlook gespeichert. Sie wird beim Senden mit in den Text der Mail geschrieben.
+- **Signaturbild:** unter dem Textfeld lässt sich ein Logo wählen (PNG, JPEG oder GIF; größere Bilder verkleinert die App auf höchstens 600 Pixel Breite, GIFs bleiben bis 300 KB). Es wird unter dem Text der Signatur als **eingebettetes Bild** in die Mail gesetzt, bei Antworten, neuen Mails und geplanten Mails, solange „Meine Signatur anhängen“ angehakt ist.
+- Signatur und Bild liegen nur in der App (`state.json`), nichts davon wird in Outlook gespeichert. Erst beim Senden schreibt die App den Text in die Mail, und n8n hängt das Bild als eingebettete Datei an den Outlook-Entwurf an. Claude bekommt weder die Signatur noch das Bild.
 
 ## Regeln: die Regeldatei in der App
 **Optionen → Regeln** zeigt `Mail-Regeln.md` als Liste, je Abschnitt eine Karte (Grundton, Regeln pro Kontakt, Dringlichkeit, Gelerntes, aus gesendeten Mails abgeleitet).

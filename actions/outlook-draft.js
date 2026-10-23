@@ -1,3 +1,5 @@
+import { imageFor } from '../lib/signature-setting.js';
+
 // Antwort als Entwurf in Outlook ablegen (sendet nichts). Ersetzt einen früher abgelegten Entwurf zu derselben Mail.
 // Der Entwurf wird als "nur an den Absender antworten" angelegt, danach setzt n8n An, CC und BCC genau so, wie die App sie zeigt.
 const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/;
@@ -10,7 +12,7 @@ export function cleanRecipients(list, label) {
 
 export default {
   name: 'outlook-draft',
-  async run({ n8n, store, scheduler, addressBook }, { id, text, to, cc, bcc }) {
+  async run({ n8n, store, scheduler, addressBook }, { id, text, to, cc, bcc, signatureImage }) {
     const p = scheduler.find(id);
     if (!p) throw new Error('Vorschlag nicht gefunden (evtl. schon bearbeitet)');
     const body = String(text || '').trim();
@@ -24,7 +26,7 @@ export default {
     const test = String(p.mail_id).startsWith('TEST-'); // Testmail: es gibt sie in Outlook nicht, also wird nur simuliert
     const old = store.get('outlookDrafts', p.mail_id);
     if (old?.draftId && !test) await n8n.deleteDraft(old.draftId).catch(() => {}); // war er schon weg, ist das in Ordnung
-    const out = test ? { draftId: 'TEST-ENTWURF', webLink: '' } : await n8n.saveDraft({ id: p.mail_id, text: body, to: toList, cc: ccList, bcc: bccList });
+    const out = test ? { draftId: 'TEST-ENTWURF', webLink: '' } : await n8n.saveDraft({ id: p.mail_id, text: body, to: toList, cc: ccList, bcc: bccList, ...imageFor(store, { signatureImage }) });
     if (!out?.draftId) throw new Error('Outlook hat keinen Entwurf angelegt');
     const saved = { draftId: out.draftId, webLink: out.webLink || '', savedAt: new Date().toISOString(), text: body, to: toList, cc: ccList, bcc: bccList };
     if (!test) addressBook?.touch([...toList, ...ccList, ...bccList]);

@@ -15,7 +15,7 @@ import { confirmWarnings } from './send-warn.js';
  * save({text, to, cc, bcc}) -> { webLink, savedAt, simulated } (wirft bei Fehler). send({done}) -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
  * check({ text, to, cc, bcc }) -> { warnings } (Warnungen vor dem Senden, optional). archive() legt die Mail in Done ab (Knopf nach dem Senden). schedule(payload, sendAt) plant die Mail, unschedule(id) nimmt die Planung zurück.
  */
-export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, schedule, unschedule, check, undoSeconds = UNDO_SECONDS }) {
+export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, schedule, unschedule, check, signatureImage = () => null, undoSeconds = UNDO_SECONDS }) {
   const saved = reply.draft;
   const hasAll = JSON.stringify([reply.all.to, reply.all.cc]) !== JSON.stringify([reply.only.to, reply.only.cc]);
   const start = saved ? { to: saved.to, cc: saved.cc, bcc: saved.bcc || [] } : { ...reply.only, bcc: [] };
@@ -33,7 +33,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   const only = radio('only', 'Nur an den Absender', !saved?.cc?.length, group);
   const all = radio('all', 'Allen antworten', !!saved?.cc?.length, group);
   const sig = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Meine Signatur anhängen' });
-  const sigRow = el('label', { class: 'send-sig', hidden: true }, sig, 'Meine Signatur anhängen');
+  const sigRow = el('label', { class: 'send-sig', hidden: true }, sig, 'Meine Signatur anhängen', signatureImage() && el('img', { class: 'sg-mini', src: `/api/signature-image?v=${signatureImage().size}`, alt: 'Signaturbild', title: 'Dein Signaturbild wird unter dem Text eingebettet' }));
   const status = el('span', { class: 'send-status', role: 'status' });
   const saveBtn = el('button', { class: 'btn', type: 'button', onclick: () => doSave() }, icon('external', 15), el('span', {}, 'In Outlook ablegen'));
   const sendBtn = el('button', { class: 'btn primary', type: 'button', onclick: () => doSend() }, icon('check', 15), el('span', {}, 'Senden'));
@@ -65,7 +65,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
 
   const payload = () => {
     const signature = sig.checked && ownSignature() ? `\n\n${ownSignature()}` : '';
-    return { text: `${getText().trim()}${signature}`, to: to.get(), cc: cc.get(), bcc: bcc.get() };
+    return { text: `${getText().trim()}${signature}`, to: to.get(), cc: cc.get(), bcc: bcc.get(), ...(sig.checked && signatureImage() && { signatureImage: true }) };
   };
 
   function problem() {
@@ -79,7 +79,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   }
 
   function update() {
-    sigRow.hidden = !ownSignature();
+    sigRow.hidden = !ownSignature() && !signatureImage();
     const why = problem();
     const off = busy || !!countdown;
     saveBtn.disabled = off || !getText().trim() || !to.get().length;

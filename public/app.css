@@ -713,3 +713,10 @@ a.att:hover { background: var(--hover); }
 .signature .card { padding: 12px 14px; }
 .sg-text { width: 100%; margin: 8px 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; line-height: 1.5; resize: vertical; }
 .sg-text:focus { outline: none; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px var(--accent-weak); }
+.sg-image { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 10px; }
+.sg-thumb { max-width: 220px; max-height: 90px; border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.sg-mini { height: 18px; margin-left: 6px; vertical-align: middle; border-radius: 3px; background: #fff; }
+.cp-sig .sg-thumb { display: block; margin-top: 6px; }
+.att-pop .att-text { margin: 0; max-width: 380px; max-height: 240px; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.45 ui-monospace, monospace; color: var(--text); }
+.att-pop .att-nopreview { color: var(--muted); font-size: 12px; }
+.att-pop em[hidden], .att-pop img[hidden] { display: none; }

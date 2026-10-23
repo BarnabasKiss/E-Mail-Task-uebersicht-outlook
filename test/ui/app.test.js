@@ -29,6 +29,7 @@ let outboxCall = null;
 let rulesList = ['Anrede kurz und österreichisch.', 'Keine Signatur schreiben.'];
 let rulesCall = null;
 let sigManual = null;
+let sigImage = null;
 let sigCall = null;
 const rulesDoc = () => ({ file: '/x/Mail-Regeln.md', version: 'v1', text: '# Regeln', title: 'Regeln', intro: ['Diese Datei steuert die App.'], sections: [{ heading: 'Grundton', level: 2, hints: ['Stil für Entwürfe.'], rules: rulesList.map((text, index) => ({ index, text })) }, { heading: 'Gelernt', level: 2, hints: [], rules: [] }] });
 let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
@@ -68,12 +69,14 @@ globalThis.fetch = async (url, init = {}) => {
     return json({ proposal: it, mail: { source: 'outlook', subject: it.betreff, from: { name: it.absender, address: it.absender_mail }, to: [], cc: [], receivedDateTime: it.received_at, text: `Text von ${it.betreff}` }, mailError: null, draft: null, headings: [] });
   }
   if (p === '/api/history-learn') return json(learnStatus);
-  if (p === '/api/compose-info') return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss', ownAddress: 'barni@firma.at' });
+  if (p === '/api/compose-info') return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss', image: sigImage, ownAddress: 'barni@firma.at' });
   if (p === '/api/actions/signature') {
     const b = JSON.parse(init.body);
     sigCall = b;
-    sigManual = b.op === 'set' ? b.text.trim() : null;
-    return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss' });
+    if (b.op === 'set-image') sigImage = { name: b.name, contentType: b.contentType, size: 70 };
+    else if (b.op === 'remove-image') sigImage = null;
+    else sigManual = b.op === 'set' ? b.text.trim() : null;
+    return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss', image: sigImage });
   }
   if (p === '/api/address-book') return json({ total: book.length, items: book.filter((b) => !u.searchParams.get('q') || b.name.toLowerCase().includes(u.searchParams.get('q'))), stats: { total: book.length, mail: 1, manuell: book.length - 1 } });
   m = /^\/api\/contacts\/(.+)$/.exec(p);
@@ -544,6 +547,28 @@ test('Signatur: von Hand speichern, "Keine Signatur", zurück zur automatischen 
   [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
   await tick(60);
   assert.equal($('signature-link').getAttribute('aria-current'), null);
+});
+
+test('Signaturbild: Datei wählen speichert es, Vorschau erscheint, Entfernen nimmt es weg', opts, async () => {
+  $('signature-link').click();
+  await tick(80);
+  assert.equal(document.querySelector('#detail .sg-thumb'), null);
+  const input = document.querySelector('#detail input[type="file"]');
+  const file = new w.File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3])], 'logo.png', { type: 'image/png' });
+  Object.defineProperty(input, 'files', { value: [file] });
+  input.dispatchEvent(new w.Event('change'));
+  await tick(150);
+  assert.equal(sigCall.op, 'set-image');
+  assert.equal(sigCall.name, 'logo.png');
+  assert.equal(sigCall.contentType, 'image/png');
+  assert.equal(Buffer.from(sigCall.base64, 'base64')[0], 0x89, 'der Inhalt kommt unverändert an');
+  assert.match(document.querySelector('#detail .sg-thumb').getAttribute('src'), /^\/api\/signature-image\?v=/);
+  [...document.querySelectorAll('#detail .btn')].find((b) => b.textContent.includes('Bild entfernen')).click();
+  await tick(80);
+  assert.equal(sigCall.op, 'remove-image');
+  assert.equal(document.querySelector('#detail .sg-thumb'), null);
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
 });
 
 test('Regeln bearbeiten: ändern, hinzufügen, löschen; ein Konflikt lädt neu; ganze Datei als Text', opts, async () => {

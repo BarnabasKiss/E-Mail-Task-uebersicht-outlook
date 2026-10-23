@@ -10,12 +10,12 @@ import { confirmWarnings } from './send-warn.js';
 import { startCountdown, UNDO_SECONDS } from '../countdown.js';
 
 /**
- * opts: { signature, prefill: { to, cc, subject, text, draftId }, suggest(q, exclude), appSave(p) -> { id, updatedAt }, appDelete(id),
+ * opts: { signature, signatureImage ({ size }|null: Signaturbild vorhanden), prefill: { to, cc, subject, text, draftId }, suggest(q, exclude), appSave(p) -> { id, updatedAt }, appDelete(id),
  *         save(p) -> { draftId, webLink, savedAt }, send({ draftId }) -> true, discard({ draftId }), schedule({ kind, payload, sendAt, fromDraftId }),
  *         improve({ mode, text, subject, to }), makeSubject({ text, to }), check({ text, to, cc, bcc }) -> { warnings } (optional), back(), undoSeconds, autosaveMs }
  * @returns {{ dirty(): boolean, flush(): Promise }} dirty() = es gibt Änderungen, die noch nicht in der App gespeichert sind
  */
-export function renderCompose(container, { signature = '', prefill = {}, suggest, appSave, appDelete, save, send, discard, schedule, improve, makeSubject, check, back, undoSeconds = UNDO_SECONDS, autosaveMs = 1200 }) {
+export function renderCompose(container, { signature = '', signatureImage = null, prefill = {}, suggest, appSave, appDelete, save, send, discard, schedule, improve, makeSubject, check, back, undoSeconds = UNDO_SECONDS, autosaveMs = 1200 }) {
   const field = (label, values) => createRecipientField({ label, values, suggest, onChange: () => changed() });
   const to = field('An', prefill.to || []);
   const cc = field('CC', prefill.cc || []);
@@ -30,7 +30,7 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
   const subject = el('input', { type: 'text', class: 'cp-subject', maxlength: '300', value: prefill.subject || '', placeholder: 'Betreff', 'aria-label': 'Betreff', oninput: () => changed() });
   const subjectBtn = el('button', { class: 'btn small', type: 'button', title: 'Claude schlägt einen Betreff aus dem Text vor; du kannst ihn danach ändern', onclick: () => doSubject() }, icon('sparkle', 14), 'Betreff vorschlagen');
   const sig = el('input', { type: 'checkbox', checked: true, 'aria-label': 'Meine Signatur anhängen' });
-  const sigRow = el('div', { class: 'cp-sig', hidden: !signature }, el('label', { class: 'send-sig' }, sig, 'Meine Signatur anhängen'), el('details', {}, el('summary', {}, 'ansehen'), el('pre', {}, signature)));
+  const sigRow = el('div', { class: 'cp-sig', hidden: !signature && !signatureImage }, el('label', { class: 'send-sig' }, sig, 'Meine Signatur anhängen'), el('details', {}, el('summary', {}, 'ansehen'), signature && el('pre', {}, signature), signatureImage && el('img', { class: 'sg-thumb', src: `/api/signature-image?v=${signatureImage.size}`, alt: 'Signaturbild' })));
   const saved = el('span', { class: 'cp-saved' });
   const status = el('span', { class: 'send-status', role: 'status' });
   const undoBar = el('div', { class: 'send-undo', hidden: true });
@@ -75,6 +75,7 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
     to: to.get(),
     cc: cc.get(),
     bcc: bcc.get(),
+    ...(sig.checked && signatureImage && { signatureImage: true }),
   });
   const hasContent = () => !!(text.value.trim() || subject.value.trim() || to.get().length || cc.get().length || bcc.get().length);
 

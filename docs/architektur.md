@@ -26,7 +26,8 @@ lib/
     http.js             Antworten senden, JSON lesen, statische Dateien sicher ausliefern
     proposal-view.js    Mailliste für die Oberfläche (Zeile aus n8n + alles Lokale)
     mail-view.js        Detailansicht und "Was bekäme Claude?" (anonymisierte Vorschau)
-    attachment-http.js  Auslieferung eines Anhangs (nie als HTML/Skript)
+    attachment-http.js  Auslieferung eines Anhangs (nie als HTML/Skript), mit ?preview=1 die erste PDF-Seite als PNG
+    pdf-preview.js      erste PDF-Seite als Vorschaubild (pdftoppm, optional)
     open-file.js        Datei mit dem Standardprogramm öffnen (Windows, macOS, Linux)
   Daten und Dienste
     n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent, getThread, saveDraft, saveNewDraft, deleteDraft, sendDraft, listContacts)
@@ -59,7 +60,7 @@ lib/
     address-job.js      Hintergrundjob: Absender und Empfänger der Mails ins Adressbuch
     thread.js           Verlauf einer Konversation (n8n getThread), je Nachricht ohne Zitat und mit getrennter Signatur
     signature.js        Signaturerkennung (Trennzeile, gemeinsames Ende, Grußformel + Kontaktblock)
-    signature-setting.js  wirksame Signatur: von Hand eingestellt (Optionen → Signatur) vor der erkannten
+    signature-setting.js  wirksame Signatur: von Hand eingestellt (Optionen → Signatur) vor der erkannten; Signaturbild (prüfen, speichern, für den Versand)
   Gedächtnis und Lernen
     contacts.js         Absender-Gedächtnis je Person und Firma (Du/Sie, Anrede, Gruß, Sprache, Notizen)
     style-extract.js    Stilmerkmale aus einem Text erkennen (ohne KI), Anrede/Gruß in Entwürfe einsetzen
@@ -76,6 +77,7 @@ public/                 Oberfläche
     main.js             Zustand und Ablauf (Liste, Detail, Aktionen)
     search-controller.js, search.js     Suche und Filter (Zustand, Logik)
     attention.js, attention-signal.js, tab-signal.js, notifier.js   Tab-Symbol, Titel, Benachrichtigungen
+    signature-image.js  Signaturbild aus einer Datei vorbereiten (verkleinern)
     hash.js, shortcuts.js, status-bar.js, api.js, util.js, icons.js, snooze-options.js
     marking.js, shortcuts.js    markierte Mails (Sammelaktionen) und Tastatur
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
@@ -119,6 +121,7 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
 | `GET /outbox` | App-Entwürfe, geplante Mails und Zähler |
+| `GET /signature-image` | das gespeicherte Signaturbild (Vorschau in den Optionen und beim Schreiben) |
 | `GET /speech`, `POST /transcribe` | Stand der lokalen Spracherkennung; Audio (rohe Bytes, Header `x-mail-app: 1`) in Text umsetzen |
 | `GET /compose-info` | wirksame, von Hand eingestellte und erkannte Signatur; ändern: Aktion `signature` (`set`, `reset`) |
 | `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |

@@ -13,6 +13,14 @@ if ([...to, ...cc, ...bcc].some((a) => !email.test(a)) || to.length + cc.length 
 const text = String(req.text || '').replace(/\r\n?/g, '\n').trim();
 if (!text) throw new Error('leerer Text');
 if (text.length > 50000) throw new Error('Text zu lang');
+// Optionales Signaturbild { name, contentType, base64 }: wird nach dem Anlegen des Entwurfs als eingebettetes Bild angehängt (cid:signatur-bild)
+let image = null;
+if (req.image) {
+  const type = String(req.image.contentType || '').toLowerCase();
+  const data = String(req.image.base64 || '');
+  if (!['image/png', 'image/jpeg', 'image/gif'].includes(type) || !/^[A-Za-z0-9+\/]+={0,2}$/.test(data) || data.length > 700000) throw new Error('ungültiges Signaturbild');
+  image = { name: String(req.image.name || 'signatur').replace(/[^\w.\- ]/g, '').slice(0, 80) || 'signatur', contentType: type, base64: data };
+}
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const html = text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
-return [{ json: { id: req.id, comment: html, to: to.join(','), cc: cc.join(','), bcc: bcc.join(',') } }];
+const html = text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('') + (image ? '<p><img src="cid:signatur-bild" alt="" style="max-width:100%"></p>' : '');
+return [{ json: { id: req.id, comment: html, image, to: to.join(','), cc: cc.join(','), bcc: bcc.join(',') } }];

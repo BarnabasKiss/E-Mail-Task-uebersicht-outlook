@@ -146,6 +146,11 @@ test('Anhänge: Liste ohne eingebettete Bilder, PDF und Bild inline, HTML nie al
     assert.match(pdf.headers.get('content-disposition'), /^inline/);
     assert.equal(pdf.headers.get('x-content-type-options'), 'nosniff');
 
+    const notPdf = await s.get('/api/proposals/1/attachments/notiz.txt?preview=1'); // Seitenvorschau gibt es nur für PDFs
+    assert.equal(notPdf.status, 415);
+    const badPdf = await s.get('/api/proposals/1/attachments/doc.pdf?preview=1'); // kein echtes PDF (oder pdftoppm fehlt): keine Vorschau, kein Absturz
+    assert.ok([200, 415].includes(badPdf.status));
+
     const img = await s.get('/api/proposals/1/attachments/shot.png'); // eingebettetes Bild ist abrufbar
     assert.equal(img.headers.get('content-type'), 'image/png');
     assert.match(img.headers.get('content-security-policy'), /sandbox/);
@@ -313,7 +318,7 @@ test('Adressbuch: Vorschläge und Liste über die Schnittstelle, Anlegen über d
 test('Neue Mail: compose-info liefert die gemerkte Signatur', async () => {
   const s = await start();
   try {
-    assert.deepEqual(await (await s.get('/api/compose-info')).json(), { signature: '', manual: null, detected: '', ownAddress: OWN });
+    assert.deepEqual(await (await s.get('/api/compose-info')).json(), { signature: '', manual: null, detected: '', image: null, ownAddress: OWN });
     s.store.set('settings', 'signature', 'Barni Kiss\nTel.: +43 1');
     assert.equal((await (await s.get('/api/compose-info')).json()).signature, 'Barni Kiss\nTel.: +43 1');
   } finally {
@@ -354,6 +359,22 @@ test('Textwerkzeuge über die Aktionen: Verbessern, Lücken, Betreff', async () 
     assert.deepEqual((await (await post('text-improve', { mode: 'gaps', text: 'Hallo' })).json()).gaps, [{ punkt: 'Frist', hinweis: 'fehlt' }]);
     assert.ok((await (await post('text-subject', { text: 'Bitte das Angebot prüfen.' })).json()).subject);
     assert.equal((await post('text-improve', { mode: 'zaubern', text: 'x' })).status, 500);
+  } finally {
+    s.close();
+  }
+});
+
+test('Signaturbild: wird nur mit Inhaltstyp und Schutzkopf ausgeliefert, ohne Bild 404', async () => {
+  const s = await start();
+  try {
+    assert.equal((await s.get('/api/signature-image')).status, 404);
+    s.store.set('settings', 'signatureImage', { name: 'logo.png', contentType: 'image/png', base64: Buffer.from([0x89, 0x50, 0x4e, 0x47, 1, 2]).toString('base64') });
+    const r = await s.get('/api/signature-image');
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get('content-type'), 'image/png');
+    assert.match(r.headers.get('content-security-policy'), /sandbox/);
+    assert.deepEqual([...new Uint8Array(await r.arrayBuffer())], [0x89, 0x50, 0x4e, 0x47, 1, 2]);
+    assert.equal((await (await s.get('/api/compose-info')).json()).image.name, 'logo.png');
   } finally {
     s.close();
   }

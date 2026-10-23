@@ -342,6 +342,55 @@ test('Anonymisierung mit dem Verlauf: das Auge ersetzt den Verlauf durch die mas
 const reply = (o = {}) => ({ sender: 'helga@partner.at', only: { to: ['helga@partner.at'], cc: [] }, all: { to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] }, draft: null, ...o });
 const draftData = (r) => ({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo Helga,\n\nTermin passt.' }, reply: r });
 
+test('Anhänge: Vorschau beim Darüberfahren (Bild, PDF-Seite, Textanfang), andere Typen ohne', opts, async () => {
+  const { previewFor, createAttachmentsBox } = await importApp('components/attachments-box.js');
+  assert.match(previewFor({ name: 'Foto.JPG', contentType: 'image/jpeg' }, '/a/1').pop.querySelector('img').getAttribute('src'), /\/a\/1$/);
+  const pdf = previewFor({ name: 'Rechnung.pdf', contentType: 'application/pdf' }, '/a/2');
+  assert.equal(pdf.pop.querySelector('img').getAttribute('src'), null, 'die Seite wird erst beim Darüberfahren geladen');
+  pdf.onOpen();
+  assert.equal(pdf.pop.querySelector('img').getAttribute('src'), '/a/2?preview=1');
+  pdf.pop.querySelector('img').dispatchEvent(new w.Event('error'));
+  assert.ok(!pdf.pop.querySelector('.att-nopreview').hidden, 'ohne Vorschau steht ein Hinweis da');
+  assert.equal(previewFor({ name: 'Archiv.zip', contentType: 'application/zip' }, '/a/3'), null);
+  assert.equal(previewFor({ name: 'Logo.svg', contentType: 'image/svg+xml' }, '/a/4'), null, 'SVG nie als Bild einbetten');
+  const seen = [];
+  globalThis.fetch = async (u) => (seen.push(u), new Response('Zeile eins\nZeile zwei'));
+  const txt = previewFor({ name: 'Notiz.txt', contentType: 'text/plain' }, '/a/5');
+  txt.onOpen();
+  txt.onOpen();
+  await tick(20);
+  assert.equal(seen.length, 1, 'nur einmal geladen');
+  assert.match(txt.pop.querySelector('.att-text').textContent, /Zeile eins\nZeile zwei/);
+
+  resetBody();
+  const box = createAttachmentsBox(1, async () => ({ items: [{ id: 'x', name: 'Foto.png', contentType: 'image/png', size: 2048, readable: false }, { id: 'y', name: 'Daten.bin', contentType: 'application/octet-stream', size: 10, readable: false }], readByAi: false, canPreview: false }));
+  document.body.append(box);
+  await tick(20);
+  const [img, bin] = box.querySelectorAll('a.att');
+  img.dispatchEvent(new w.MouseEvent('mouseenter', { clientX: 5, clientY: 5 }));
+  assert.ok(document.querySelector('.att-pop.on img'), 'Vorschau erscheint');
+  img.dispatchEvent(new w.MouseEvent('mouseleave'));
+  assert.equal(document.querySelector('.att-pop'), null);
+  bin.dispatchEvent(new w.MouseEvent('mouseenter', { clientX: 5, clientY: 5 }));
+  assert.equal(document.querySelector('.att-pop'), null, 'ohne Vorschau nichts');
+});
+
+test('Signaturbild: mit Haken geht signatureImage an den Entwurf, ohne Haken nicht', opts, async () => {
+  const calls = [];
+  const extra = { signatureImage: () => ({ size: 70 }), outlookDraft: async (p) => (calls.push(p), {}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
+  const { box } = await render(draftData(reply()), { extra });
+  const save = () => [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Outlook ablegen')).click();
+  assert.ok(!box.querySelector('.send-sig').hidden, 'die Zeile erscheint auch ohne Signaturtext, wenn es ein Bild gibt');
+  assert.match(box.querySelector('.send-sig .sg-mini').getAttribute('src'), /signature-image/);
+  save();
+  await tick(30);
+  assert.equal(calls[0].signatureImage, true);
+  box.querySelector('.send-sig input').checked = false;
+  save();
+  await tick(30);
+  assert.equal('signatureImage' in calls[1], false);
+});
+
 test('Senden: Empfänger vorbelegt, "Allen antworten" tauscht sie, In Outlook ablegen schickt Text, An und CC', opts, async () => {
   const calls = [];
   const { box } = await render(draftData(reply()), { extra: { outlookDraft: async (p) => (calls.push(p), { webLink: 'https://outlook/d', savedAt: '2026-10-23T09:00:00Z' }), outlookDraftDelete: async () => calls.push('delete'), outlookSend: async () => true } });

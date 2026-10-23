@@ -50,6 +50,7 @@ export function renderDetail(container, data, ctx) {
         ownSignature: () => handlers.signatureOverride?.() ?? (bodyView?.ownSignature() || ''),
         onRegenerate: handlers.regenerate,
         onSendCheck: handlers.sendCheck,
+        signatureImage: () => handlers.signatureImage?.() ?? null,
         onOutlookDraft: handlers.outlookDraft,
         onOutlookDraftDelete: handlers.outlookDraftDelete,
         onSend: handlers.outlookSend,

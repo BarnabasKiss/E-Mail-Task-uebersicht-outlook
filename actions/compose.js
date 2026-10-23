@@ -1,10 +1,11 @@
 // Neue Mail schreiben: als Entwurf in Outlook ablegen (sendet nichts), den Entwurf senden oder verwerfen.
 // Gesendet oder gelöscht wird nur ein Entwurf, den diese App selbst angelegt hat (composeDrafts); n8n prüft zusätzlich, dass die ID ein Entwurf ist.
 import { cleanRecipients } from './outlook-draft.js';
+import { imageFor } from '../lib/signature-setting.js';
 
 export const composeDraft = {
   name: 'compose-draft',
-  async run({ n8n, store, addressBook }, { subject, text, to, cc, bcc, replaceId }) {
+  async run({ n8n, store, addressBook }, { subject, text, to, cc, bcc, replaceId, signatureImage }) {
     const subj = String(subject || '').replace(/[\r\n]+/g, ' ').trim();
     const body = String(text || '').trim();
     if (!subj) throw new Error('Es fehlt der Betreff');
@@ -20,7 +21,7 @@ export const composeDraft = {
       await n8n.deleteDraft(replaceId).catch(() => {}); // war er schon weg, ist das in Ordnung
       store.del('composeDrafts', replaceId);
     }
-    const out = await n8n.saveNewDraft({ subject: subj, text: body, to: toList, cc: ccList, bcc: bccList });
+    const out = await n8n.saveNewDraft({ subject: subj, text: body, to: toList, cc: ccList, bcc: bccList, ...imageFor(store, { signatureImage }) });
     if (!out?.draftId) throw new Error('Outlook hat keinen Entwurf angelegt');
     const saved = { savedAt: new Date().toISOString(), subject: subj, to: toList, cc: ccList, bcc: bccList };
     store.set('composeDrafts', out.draftId, saved);

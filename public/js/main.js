@@ -9,6 +9,7 @@ import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
 import { renderRules } from './components/rules-view.js';
 import { renderSignature } from './components/signature-view.js';
+import { prepareSignatureImage } from './signature-image.js';
 import { renderContacts } from './components/contacts-view.js';
 import { renderCompose } from './components/compose-view.js';
 import { renderOutbox } from './components/outbox-view.js';
@@ -23,7 +24,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, sig: null, signatureManual: null, compose: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, sig: null, signatureManual: null, signatureImage: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -314,6 +315,7 @@ async function openCompose(prefill = {}) {
   syncNav();
   handle.view = renderCompose($('detail'), {
     signature: info.signature,
+    signatureImage: info.image,
     prefill,
     suggest: (q, exclude) => api.suggest(q, exclude),
     appSave: (payload) => api.action('mail-draft-save', payload),
@@ -432,6 +434,7 @@ async function select(id, { keepView = true } = {}) {
     view: state.view,
     ownAddress: state.ownAddress,
     signatureOverride: () => state.signatureManual,
+    signatureImage: () => state.signatureImage,
     onView: (v) => {
       state.view = v;
       syncHash();
@@ -740,11 +743,13 @@ async function showSignature(note = state.sig?.note || '') {
   }
   if (state.sig !== s) return; // inzwischen etwas anderes geöffnet
   state.signatureManual = info.manual;
+  state.signatureImage = info.image;
   s.note = note;
   const change = async (payload, text) => {
     try {
       const r = await api.action('signature', payload);
       state.signatureManual = r.manual;
+      state.signatureImage = r.image;
       return showSignature(text);
     } catch (e) {
       toast(e.message, { error: true });
@@ -753,6 +758,15 @@ async function showSignature(note = state.sig?.note || '') {
   renderSignature($('detail'), info, {
     back: closeSignature,
     save: (text) => change({ op: 'set', text }, text.trim() ? 'Signatur gespeichert.' : 'Mails gehen jetzt ohne Signatur raus.'),
+    uploadImage: async (file) => {
+      try {
+        const img = await prepareSignatureImage(file);
+        return change({ op: 'set-image', ...img }, 'Signaturbild gespeichert.');
+      } catch (e) {
+        toast(e.message, { error: true });
+      }
+    },
+    removeImage: () => change({ op: 'remove-image' }, 'Signaturbild entfernt.'),
     reset: () => change({ op: 'reset' }, 'Die Signatur wird wieder automatisch aus deiner letzten Nachricht erkannt.'),
   }, note);
 }
@@ -831,7 +845,7 @@ if (hash.kontakt) {
   openProfile(hash.kontakt);
 } else if (first) select(first.id);
 else renderEmpty($('detail'), 'Keine offenen Mails. Neue erscheinen hier automatisch.');
-api.composeInfo().then((i) => (state.signatureManual = i.manual)).catch(() => {}); // eine von Hand eingestellte Signatur gilt auch bei Antworten
+api.composeInfo().then((i) => ((state.signatureManual = i.manual), (state.signatureImage = i.image))).catch(() => {}); // eine von Hand eingestellte Signatur gilt auch bei Antworten
 renderLeft();
 statusBar.update();
 setInterval(() => loadList().then(statusBar.update).catch(statusBar.update), 30_000);

@@ -7,7 +7,7 @@ import { createImproveBar } from './improve-bar.js';
 // Übersetzen, Prüfen) und eine gemeinsame Versionsliste für alles. Ablage: Zwischenablage, als Entwurf in Outlook oder gleich senden (send-box.js; bei Testmails nur simuliert).
 const REJECT = { id: 'ablehnung', label: 'Ablehnung', title: 'Neu schreiben: höfliche Ablehnung, ohne einen Grund zu erfinden', needsText: false };
 
-export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', onRegenerate, onOutlookDraft, onOutlookDraftDelete, onSend, onArchive, onSchedule, onUnschedule, onImprove, onSaveEdit, onSendCheck, undoSeconds }) {
+export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', signatureImage = () => null, onRegenerate, onOutlookDraft, onOutlookDraftDelete, onSend, onArchive, onSchedule, onUnschedule, onImprove, onSaveEdit, onSendCheck, undoSeconds }) {
   const area = el('textarea', { class: 'draft-text', rows: 7, 'aria-label': 'Antwortentwurf', placeholder: 'Der Entwurf erscheint hier …' });
   const status = el('span', { class: 'draft-status' });
   const copy = el('button', { class: 'btn', type: 'button', onclick: copyText }, icon('copy', 15), el('span', {}, 'Kopieren'));
@@ -31,7 +31,7 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
 
   const sendBox =
     reply && onOutlookDraft
-      ? createSendBox({ isTest, suggest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, check: onSendCheck, discard: onOutlookDraftDelete, archive: onArchive, schedule: onSchedule, unschedule: onUnschedule, undoSeconds })
+      ? createSendBox({ isTest, suggest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, check: onSendCheck, signatureImage, discard: onOutlookDraftDelete, archive: onArchive, schedule: onSchedule, unschedule: onUnschedule, undoSeconds })
       : null;
 
   // Werkzeuge für den Text im Feld: Rechtschreibung, Struktur, Lücken, Diktieren (mit Rückgängig)

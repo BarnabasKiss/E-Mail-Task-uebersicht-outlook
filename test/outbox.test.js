@@ -134,3 +134,16 @@ test('Abbrechen: weg, oder bei einer neuen Mail zurück als Entwurf in der App',
   assert.deepEqual(s.outbox.cancel(b.id), { cancelled: true });
   assert.deepEqual(s.outbox.cancel('gibt-es-nicht'), { cancelled: false });
 });
+
+test('Job: ein gewünschtes Signaturbild geht beim Anlegen des Entwurfs an n8n (neue Mail und Antwort), ohne Wunsch nicht', async () => {
+  const s = setup();
+  s.store.set('settings', 'signatureImage', { name: 'logo.png', contentType: 'image/png', base64: 'AAAA' });
+  s.outbox.schedule({ kind: 'new', payload: { ...NEW, signatureImage: true }, sendAt: s.at(3600_000) });
+  s.outbox.schedule({ kind: 'new', payload: NEW, sendAt: s.at(3600_000) });
+  s.advance(3601_000);
+  await s.outbox.runDue();
+  const drafts = s.calls.filter((c) => c[0] === 'saveNewDraft').map((c) => c[1]);
+  assert.equal(drafts.length, 2);
+  assert.deepEqual(drafts.find((d) => d.image).image, { name: 'logo.png', contentType: 'image/png', base64: 'AAAA' });
+  assert.equal(drafts.filter((d) => d.image).length, 1, 'nur die Mail mit Wunsch bekommt das Bild');
+});

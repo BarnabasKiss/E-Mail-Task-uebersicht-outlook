@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { actions } from '../actions/index.js';
-import { signatureInfo } from '../lib/signature-setting.js';
+import { signatureInfo, imageFor } from '../lib/signature-setting.js';
 import { createStore } from '../lib/store.js';
 import { createScheduler } from '../lib/scheduler.js';
 
@@ -313,11 +313,29 @@ test('Neue Mail: Verwerfen löscht nur App-Entwürfe', async () => {
 test('Signatur: von Hand setzen gilt vor der erkannten, leer = keine, Zurücksetzen nimmt wieder die erkannte', async () => {
   const s = setup();
   s.store.set('settings', 'signature', 'Erkannt\nTel 1');
-  assert.deepEqual(signatureInfo(s.store), { signature: 'Erkannt\nTel 1', manual: null, detected: 'Erkannt\nTel 1' });
+  assert.deepEqual(signatureInfo(s.store), { signature: 'Erkannt\nTel 1', manual: null, detected: 'Erkannt\nTel 1', image: null });
   assert.equal((await actions.signature.run(s.services, { op: 'set', text: '  Mit Gruß  \r\nBarni  \n\n' })).signature, 'Mit Gruß\nBarni');
   assert.equal(signatureInfo(s.store).detected, 'Erkannt\nTel 1', 'die erkannte bleibt daneben erhalten');
   assert.equal((await actions.signature.run(s.services, { op: 'set', text: '' })).signature, '', 'leer = keine Signatur');
   assert.equal((await actions.signature.run(s.services, { op: 'reset' })).signature, 'Erkannt\nTel 1');
   await assert.rejects(actions.signature.run(s.services, { op: 'set', text: 'x'.repeat(2001) }), /zu lang/);
   await assert.rejects(actions.signature.run(s.services, { op: 'zaubern' }), /Unbekannte/);
+});
+
+// 1x1-PNG
+const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+test('Signaturbild: speichern prüft Typ, Inhalt und Größe; nur wenn die Mail es verlangt, geht es an n8n', async () => {
+  const s = setup();
+  const info = await actions.signature.run(s.services, { op: 'set-image', name: 'logo (1).png', contentType: 'image/png', base64: PNG });
+  assert.deepEqual(info.image, { name: 'logo 1.png', contentType: 'image/png', size: Buffer.from(PNG, 'base64').length });
+  assert.ok(!JSON.stringify(info).includes(PNG), 'die Bilddaten gehen nicht in die Info');
+  assert.deepEqual(imageFor(s.store, { signatureImage: true }).image.base64, PNG);
+  assert.deepEqual(imageFor(s.store, {}), {}, 'ohne Wunsch kein Bild');
+  await assert.rejects(actions.signature.run(s.services, { op: 'set-image', contentType: 'image/svg+xml', base64: PNG }), /Nur PNG, JPEG oder GIF/);
+  await assert.rejects(actions.signature.run(s.services, { op: 'set-image', contentType: 'image/jpeg', base64: PNG }), /kein gültiges Bild/);
+  await assert.rejects(actions.signature.run(s.services, { op: 'set-image', contentType: 'image/png', base64: 'ä!' }), /beschädigt/);
+  await assert.rejects(actions.signature.run(s.services, { op: 'set-image', contentType: 'image/png', base64: Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(401 * 1024)]).toString('base64') }), /zu groß/);
+  assert.equal((await actions.signature.run(s.services, { op: 'remove-image' })).image, null);
+  assert.deepEqual(imageFor(s.store, { signatureImage: true }), {}, 'ohne gespeichertes Bild auch kein Wunsch');
 });

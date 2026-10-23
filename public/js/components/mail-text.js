@@ -14,9 +14,10 @@ function placeTip(tip, x, y) {
   tip.style.top = `${top}px`;
 }
 
-/** Hängt einen Tooltip an ein Element: erscheint beim Darüberfahren (folgt dem Mauszeiger) und bei Tastatur-Fokus. */
-function hoverTip(wrap, tipNode) {
+/** Hängt einen Tooltip an ein Element: erscheint beim Darüberfahren (folgt dem Mauszeiger) und bei Tastatur-Fokus. onOpen() läuft bei jedem Öffnen (z. B. zum späten Laden). */
+export function hoverTip(wrap, tipNode, { onOpen } = {}) {
   const open = (x, y) => {
+    onOpen?.();
     document.body.append(tipNode);
     tipNode.classList.add('on');
     placeTip(tipNode, x, y);
