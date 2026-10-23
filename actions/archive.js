@@ -1,4 +1,4 @@
-// Verwerfen: keine Aufgabe nötig. Die Mail wandert nach "Done": sie bleibt durchsuchbar und lässt sich
+// Done: erledigt, keine Aufgabe nötig. Die Mail wandert nach "Done": sie bleibt durchsuchbar und lässt sich
 // zurückholen. Optional den Absender künftig ignorieren (Regel landet in Mail-Regeln.md).
 export default {
   name: 'archive',

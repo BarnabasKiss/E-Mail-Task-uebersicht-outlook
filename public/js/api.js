@@ -13,6 +13,8 @@ export const api = {
   proposals: () => request('GET', '/api/proposals'),
   refresh: () => request('POST', '/api/refresh', {}),
   detail: (id) => request('GET', `/api/proposals/${id}`),
+  search: (q, { content = true, names = true, text = true } = {}) => request('GET', `/api/search?q=${encodeURIComponent(q)}${content ? '' : '&content=0'}${names ? '' : '&names=0'}${text ? '' : '&text=0'}`),
+  aiView: (id) => request('GET', `/api/proposals/${id}/ai-view`),
   attachments: (id) => request('GET', `/api/proposals/${id}/attachments`),
   match: (id, force = false) => request('POST', `/api/proposals/${id}/match${force ? '?force=1' : ''}`, {}),
   action: (name, payload) => request('POST', `/api/actions/${name}`, payload),

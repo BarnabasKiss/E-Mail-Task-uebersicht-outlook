@@ -7,6 +7,7 @@ const isoDate = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Aufgabe in einer Zeile: Text, Überschrift, Frist, Wichtig, Übernehmen. */
 export function createTaskRow({ proposal, headings, isTest, onAccept }) {
+  const taken = proposal.aufgabe_uebernommen;
   const text = el('input', { type: 'text', class: 'task-text', 'aria-label': 'Aufgabe', value: proposal.aufgabe_text || '', placeholder: 'Aufgabe formulieren …' });
 
   const select = el(
@@ -68,12 +69,18 @@ export function createTaskRow({ proposal, headings, isTest, onAccept }) {
   text.title = text.value;
   text.addEventListener('input', () => (text.title = text.value)); // langer Text bleibt per Tooltip lesbar
 
-  const node = el(
-    'section',
-    { class: 'card task', 'aria-label': 'Aufgabe' },
-    el('div', { class: 'task-row' }, el('span', { class: 'task-icon' }, icon('checkSquare', 18)), text, headingBox, due, important, submit),
-    note,
-  );
+  const formRow = el('div', { class: 'task-row', hidden: !!taken }, el('span', { class: 'task-icon' }, icon('checkSquare', 18)), text, headingBox, due, important, submit);
+  // Schon übernommen: nur der Vermerk, das Formular lässt sich für eine weitere Aufgabe öffnen
+  const takenRow = taken
+    ? el(
+        'div',
+        { class: 'task-row taken' },
+        el('span', { class: 'task-icon ok' }, icon('check', 18)),
+        el('span', { class: 'taken-text', title: taken.text }, el('strong', {}, 'Aufgabe übernommen: '), taken.text, taken.heading && el('span', { class: 'taken-heading' }, ` · ${taken.heading}`)),
+        el('button', { class: 'link', type: 'button', onclick: () => ((takenRow.hidden = true), (formRow.hidden = false), text.focus()) }, 'Weitere Aufgabe'),
+      )
+    : null;
+  const node = el('section', { class: 'card task', 'aria-label': 'Aufgabe' }, takenRow, formRow, note);
 
   return {
     node,
@@ -82,7 +89,7 @@ export function createTaskRow({ proposal, headings, isTest, onAccept }) {
       select.querySelector(`option[value="${PENDING}"]`)?.remove();
       if (match.heading && !match.isNew) {
         select.value = match.heading;
-        setNote(match.reason ? `Zugeordnet: ${match.reason}` : '');
+        setNote('');
       } else if (match.heading && match.isNew) {
         newInput.value = match.heading;
         showNew(true);

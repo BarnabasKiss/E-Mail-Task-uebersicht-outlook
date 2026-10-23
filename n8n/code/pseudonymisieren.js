@@ -66,11 +66,11 @@ const applyAll = (text) => {
   let s = String(text || '');
   s = s.replace(/https?:\/\/\S+/g, (u) => { const t = u.match(/[.,;:)\]]+$/); return sub('LINK', t ? u.slice(0, -t[0].length) : u) + (t ? t[0] : ''); });
   s = s.replace(/([A-Za-z0-9._%+\-]+)@([A-Za-z0-9.\-]+\.[A-Za-z]{2,})/g, (all, local, dom) => (isOwn(all) ? all : sub('MAIL', local) + '@' + dom));
-  s = s.replace(/\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}(?:\s?[A-Z0-9]{1,4})?\b/g, (v) => sub('IBAN', v));
+  s = s.replace(/\b[A-Z]{2}\d{2}(?:[ \t]?[A-Z0-9]{4}){3,7}(?:[ \t]?[A-Z0-9]{1,4})?(?![\wäöüÄÖÜß])/g, (v) => sub('IBAN', v));
   s = s.replace(/\b[A-HJ-NPR-Z0-9]{17}\b/g, (v) => (/\d/.test(v) && /[A-Z]/.test(v) ? sub('FIN', v) : v));
   s = s.replace(/\b[A-ZÄÖÜ]{1,2}[ -]\d{1,5}[ -]?[A-Z]{1,3}\b/g, (v) => sub('KFZ', v));
   s = s.replace(/(geb\.?|geboren(?: am)?|Geburtsdatum:?)\s*(\d{1,2}\.\d{1,2}\.\d{2,4})/gi, (all, l, d) => l + ' ' + sub('GEBDAT', d));
-  s = s.replace(/\b(Schadennummer|Schadennr\.?|Schaden-Nr\.?|Schaden\s?Nr\.?|Aktenzeichen|Zl\.|GZ|Az\.?|Polizzennummer|Polizzennr\.?|Polizze|Vertragsnummer|Kundennummer|Auftragsnummer|Referenznummer|Referenz)\s*(?:lautet|ist)?\s*[:#]?\s*([A-Z0-9\/\-\.]{4,})/gi, (all, l, v) => { const t = v.match(/[.,;:)\]\/-]+$/); const core = t ? v.slice(0, -t[0].length) : v; return /\d/.test(core) ? l + ' ' + sub('AKTE', core) + (t ? t[0] : '') : all; });
+  s = s.replace(/\b(Schadennummer|Schadennr\.?|Schaden-Nr\.?|Schaden\s?Nr\.?|Aktenzeichen|Zl\.|GZ|Az\.?|Polizzennummer|Polizzennr\.?|Polizze|Vertragsnummer|Kundennummer|Auftragsnummer|Referenznummer|Referenz|Rechnungsnummer|Rechnungsnr\.?|Rechnung Nr\.?|Belegnummer|Aktennummer|Aktennr\.?|Schadenakte|Akte|Schaden|Fallnummer|Fall|Vorgangsnummer|Vorgang)\s*(?:lautet|ist)?\s*[:#]?\s*([A-Z0-9\/\-\.]{4,})/gi, (all, l, v) => { const t = v.match(/[.,;:)\]\/-]+$/); const core = t ? v.slice(0, -t[0].length) : v; return /\d/.test(core) ? l + ' ' + sub('AKTE', core) + (t ? t[0] : '') : all; });
   s = s.replace(/\b[A-Z]{1,4}-\d{4}\/\d{2,}\b/g, (v) => sub('AKTE', v));
   s = s.replace(/\b[A-ZÄÖÜ][a-zäöüß\-]+(?:straße|strasse|gasse|weg|platz|allee|ring|zeile|kai|gürtel|steig|markt)\s+\d+[a-z]?(?:[\/\-]\d+)?(?:,?\s*\d{4,5}\s+[A-ZÄÖÜ][a-zäöüß\-]+)?/g, (v) => sub('ADRESSE', v));
   s = s.replace(/\b\d{4}\s?\d{6}\b/g, (v) => sub('SVNR', v));

@@ -59,3 +59,15 @@ test('Rückübersetzung stellt die Originaldaten wieder her', () => {
   assert.equal(restore(texts[0], map), subject.replace('Schaden Nr. 2026-778', 'Schaden Nr. 2026-778'));
   assert.equal(restore('Rufe [TEL_1] an. [UNBEKANNT_9] bleibt.', { '[TEL_1]': '123' }), 'Rufe 123 an. [UNBEKANNT_9] bleibt.');
 });
+
+test('Aktennummern nach "Akte", "Schaden", "Fall" werden maskiert, Wörter ohne Nummer nicht', () => {
+  const out = pseudonymizeTexts({}, ['Akte 2026/48213 und Schaden: 2026-77/1 sowie Fall 4711. Die Akte wurde angelegt, im Schaden ist nichts.']);
+  assert.equal(out.texts[0], 'Akte [AKTE_1] und Schaden [AKTE_2] sowie Fall [AKTE_3]. Die Akte wurde angelegt, im Schaden ist nichts.');
+  assert.equal(out.map['[AKTE_1]'], '2026/48213');
+});
+
+test('IBAN frisst keinen Buchstaben der nächsten Zeile, Rechnungsnummer wird maskiert', () => {
+  const out = pseudonymizeTexts({}, ['Zahlbar auf IBAN AT61 1904 3002 3457 3201\nRückfragen: Rechnungsnummer: RE-2026-4147']);
+  assert.equal(out.texts[0], 'Zahlbar auf IBAN [IBAN_1]\nRückfragen: Rechnungsnummer [AKTE_1]');
+  assert.equal(out.map['[IBAN_1]'], 'AT61 1904 3002 3457 3201');
+});

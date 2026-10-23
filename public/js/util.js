@@ -51,7 +51,7 @@ export function formatDay(iso) {
 
 export const URGENCY_LABEL = { jetzt: 'Jetzt', heute: 'Heute', woche: 'Diese Woche', egal: 'Egal' };
 /** Wie eine Mail nach Done kam. */
-export const FILED_LABEL = { done: 'Verworfen', angenommen: 'Aufgabe übernommen', beantwortet: 'Beantwortet' };
+export const FILED_LABEL = { done: 'Erledigt', angenommen: 'Aufgabe übernommen', beantwortet: 'Beantwortet' };
 
 export function initials(name, fallback = '?') {
   const parts = String(name || '').replace(/[<>()]/g, ' ').split(/[\s@.]+/).filter(Boolean);
@@ -80,4 +80,15 @@ export function toast(message, { error = false, action } = {}) {
   t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (t.hidden = true), error ? 8000 : action ? 9000 : 3500);
+}
+
+/** Wie die Mail bei dir ankam: Direkt (du stehst in An), CC oder Shared (Shared Inbox, Verteiler, Bcc). */
+const ROLE = {
+  direkt: ['Direkt', 'Direkt an dich gerichtet (du stehst in An).'],
+  cc: ['CC', 'Du bist nur im CC.'],
+  shared: ['Shared', 'Nicht persönlich an dich adressiert: Shared Inbox, Verteiler oder Bcc.'],
+};
+export function roleChip(rolle) {
+  const r = ROLE[rolle];
+  return r ? el('span', { class: `role role-${rolle}`, title: r[1] }, r[0]) : null;
 }

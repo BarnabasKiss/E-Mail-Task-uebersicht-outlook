@@ -47,12 +47,12 @@ Voraussetzung: Node.js 20 oder neuer. Es gibt keine Pakete zu installieren.
 - Links: Suche (Taste `/`), Reiter Offen, Egal, Später, **Done**. Die Liste ist nach Dringlichkeit gruppiert.
   Die Suche durchsucht alle Mails, auch die in Done.
 - Pro Mail in der Liste (beim Darüberfahren): **In Done ablegen** und **Löschen**. In Done: **Zurückholen** und **Löschen**.
-- Rechts oben: **In Outlook öffnen**, **Später** (Mail ausblenden bis zu einem Zeitpunkt), **Verwerfen**, **Löschen**.
-  - **Verwerfen** = in Done ablegen (keine Aufgabe nötig). Die Mail bleibt durchsuchbar und lässt sich zurückholen.
+- Rechts oben: **In Outlook öffnen**, **Später** (Mail ausblenden bis zu einem Zeitpunkt), **Done**, **Löschen**.
+  - **Done** = in Done ablegen (erledigt, keine Aufgabe nötig). Die Mail bleibt durchsuchbar und lässt sich zurückholen.
     Direkt danach „Rückgängig“. Im Menü daneben: „Absender künftig ignorieren“ (Regel in Mail-Regeln.md).
   - **Löschen** = Konversation vollständig aus der Übersicht entfernen (Tabellenzeile in n8n und alles Lokale, auch aus Done).
     Nicht rückgängig zu machen, mit Rückfrage. In Outlook bleibt die Mail unverändert.
-  - **Done** enthält verworfene, übernommene (Aufgabe angelegt) und beantwortete Mails.
+  - **Done** enthält erledigte, übernommene (Aufgabe angelegt) und beantwortete Mails.
 - Anhänge stehen als Chips unter Absender und Empfängern (Signaturlogos und eingebettete Bilder werden ausgeblendet). PDF und Bilder öffnen
   im Browser, alles andere wird heruntergeladen. Chips mit ✦ liest Claude beim Antwortentwurf mit (siehe Datenschutz).
 - Zusammenfassung oder Nachricht per Umschalter. Darunter die Aufgabe in einer Zeile und der Antwortentwurf.
@@ -121,6 +121,81 @@ Anhänge haben, zusätzlich lokal über `claude -p` neu und zeigt das Ergebnis s
   in `actions/index.js` den Import entfernen, in `lib/api.js` die Teile mit `review` und in `public/js/components/detail.js` den
   Abschnitt `anhang_bewertung` sowie den Link "Was geht an Claude?". Der Einhängepunkt `decorate`/`extraJobs` im Scheduler darf
   stehen bleiben. Gespeicherte Ergebnisse (`attReviews` in `state.json`) schaden nicht.
+
+## Bilder in Mails
+- **Anzeige:** In der Ansicht "Nachricht" stehen Bilder, die in der Mail eingebettet sind (Screenshots, `cid:`), an ihrer Stelle im
+  Text. Klick öffnet das Bild groß. Bilder von fremden Servern (`http…`) werden nicht geladen (Tracking), Pixel und Mini-Bilder
+  unter 400 Byte fallen weg. Die Bilder kommen über denselben Weg wie Anhänge, es wird nichts von außen nachgeladen.
+- **Zuordnung:** Der Outlook-Node in n8n liefert keine `contentId`. Die App ordnet deshalb `cid:`-Bilder nach Dateiname und sonst
+  der Reihe nach zu. Das reicht bei den üblichen Mails (Screenshots), kann bei vielen Bildern in untypischer Reihenfolge verrutschen.
+- **Claude** sieht nie ein Bild, nur den OCR-Text (`tesseract`) von Bildern ab 4 KB, wenn mindestens 20 Zeichen erkannt werden
+  (Logos fallen so weg), höchstens 5 Bilder pro Mail. Der Text läuft zusammen mit den Anhängen durch die strenge Maskierung samt
+  Prüfung, bei unsicherem Ergebnis wird nichts gesendet. Er erscheint auch unter **Was geht an Claude?** als "Bild im Text n".
+  Abschalten: `"attachments": { "ocrInline": false }`.
+- **tesseract ohne Installation (ohne root):** Die RPMs `tesseract`, `tesseract-libs`, `tesseract-common`, `tesseract-langpack-deu`, `-eng`
+  mit `dnf download` laden und mit `rpm2cpio <datei> | cpio -idm` nach `<Datenordner>/tesseract/` entpacken (ca. 9 MB). Die App nutzt
+  das beim Start automatisch (Meldung "tesseract aus dem Datenordner"), sonst das tesseract aus dem PATH.
+
+## Direkt, CC, Shared
+Neben dem Absender zeigt die Liste, wie die Mail zu dir kam: **Direkt** (blau, du stehst in An), **CC** und **Shared** (grau, du bist
+weder in An noch in Cc: Shared Inbox, Verteiler oder Bcc). Outlook liefert das nicht als Feld, `lib/roles.js` liest es im Hintergrund aus
+An/Cc der Mail (6 Mails alle 30 s, neueste zuerst) und merkt es sich lokal (`roles` in `state.json`). Weitere eigene Adressen:
+`"ownAliases": ["name@alias.at"]` in `config.json`. Testmails: erste Vorschauzeile `[Rolle: cc]` oder `[Rolle: shared]`.
+
+## Liste: Überfällig und Anhang-Tag
+- **Überfällig** steht zwischen "Jetzt" und "Heute": "Heute"-Mails von einem früheren Tag, "Diese Woche"-Mails älter als 7 Tage und
+  alle mit einer Frist vor heute (am längsten überfällig zuerst). "Jetzt" bleibt immer in "Jetzt", "Egal" und Done sind nie überfällig
+  (`isOverdue` in `public/js/components/list.js`).
+- **Anhang-Tag:** Büroklammer mit den Dateiformaten (`PDF · XLSX`, ab drei Formaten `+n`), Tooltip mit den Dateinamen. Die App fragt die
+  Anhänge im Hintergrund ab (`lib/attachment-info.js`, 6 Mails alle 30 s) und merkt sie lokal (`attInfo`). "Aufgabe" ist nur ein Symbol.
+
+## Tag "Wichtig"
+Orange, unten in der Zeile und in der Detailansicht, wenn der Inhalt auf etwas Kritisches hindeutet: Stichwörter wie Eskalation, Störung,
+Ausfall, Mahnung, Anwalt, Kündigung, Geschäftsführung, Beschwerde, Behörde, Datenleck, "dringend/umgehend/sofort" oder eine Frist, die
+heute, morgen oder schon vorbei ist. Gelesen werden Betreff, Vorschau und die Bewertung (Zusammenfassung, Begründung, Aufgabe);
+"nicht dringend", "keine Eskalation" zählen nicht, Newsletter, "Egal" und Done nie. Der Tooltip nennt den Grund. Lokal, ohne KI-Aufruf
+(`lib/importance.js`, Stichwörter dort anpassbar).
+
+## Dokumentensuche und Mailindex
+Die Suche findet auch Empfänger und den vollen Text jeder Mail (An, CC, Mailtext) sowie Text in Anhängen (PDF, Word, Excel, PowerPoint, Text) und in Bildern (OCR, auch Screenshots in der Mail). Ein
+Hintergrundjob liest Anhänge, Empfänger und Mailtext aller Mails (auch Done), 2 Mails alle 45 s, neueste zuerst, und merkt sie in
+`<Datenordner>/doc-index.json` (`lib/doc-index.js`). Nur lokal: nichts davon geht an Claude oder ins Netz. Die Datei enthält echte
+Inhalte, deshalb im Datenordner lassen und nicht in die Cloud legen. Beim ersten Start dauert das Nachlesen je nach Mailmenge einige
+Minuten bis eine Stunde, die Trefferliste zeigt dazu "Dokumente und Mailtext: x von y Mails gelesen". Mails, die Outlook nicht liefert (z. B. dort gelöscht),
+werden nach 3 Versuchen übersprungen.
+- Treffer erscheinen mit Dateiname und Ausschnitt (Suchbegriffe markiert) unter der Zusammenfassung. Mehrere Wörter müssen im selben
+  Dokument stehen, der Dateiname zählt mit.
+- Abschalten: `"attachments": { "searchDocs": false }` in `config.json`. Index löschen = Datei entfernen, er baut sich neu auf.
+- Grenzen: pro Dokument die ersten 60.000 Zeichen, Anhänge über 25 MB und unbekannte Dateitypen fehlen, gescannte PDFs ohne Text
+  werden nicht per OCR gelesen (nur Bilder). Der Mailtext ist auf 100.000 Zeichen begrenzt, Bcc-Empfänger kennt Outlook nicht.
+
+## Erweiterte Suche
+Der Filter-Knopf rechts neben dem Suchfeld klappt ein Panel auf (Zähler am Knopf, aktive Filter als Chips mit ×, "Zurücksetzen").
+Alle Wörter müssen vorkommen. Ohne Suchtext genügen Filter.
+- **Suchen in:** Absender & Betreff, Mailtext, Bewertung (Zusammenfassung, Aufgabe, Kategorie, Begründung), Dokumentinhalt,
+  Dokumentnamen (standardmäßig alles an). Mailtext und Dokumente laufen über den lokalen Index (siehe oben).
+- **Von:** Teil von Name oder Adresse (Vorschläge aus bekannten Absendern). **An / CC:** Teil von Name oder Adresse eines Empfängers,
+  wählbar "An + CC", "Nur An" oder "Nur CC". **Zeitraum:** von/bis oder Heute, 7 Tage, 30 Tage.
+- **Mit:** Anhang (mit Format-Auswahl aus den vorhandenen Anhängen), Aufgabe (vorgeschlagen oder übernommen), Wichtig.
+  **Eingang:** Direkt, CC, Shared.
+- Die Suche läuft über alle Mails inklusive Done. Der Zustand steht in der Adresszeile (`f_von`, `f_ab`, `f_bis`, `f_fmt`, `f_anh`,
+  `f_auf`, `f_wi`, `f_ein`, `f_in`), Neuladen und Lesezeichen behalten die Suche.
+- Der Filter An/CC und die Suche im Mailtext gelten erst für Mails, die der Hintergrundjob schon gelesen hat (die Trefferliste zeigt
+  "Dokumente und Mailtext: x von y Mails gelesen"). Die Logik steht in `public/js/search.js`, das Panel in `public/js/components/search-panel.js`.
+
+## Tab-Symbol und Benachrichtigungen
+Der Browser-Tab zeigt, ob etwas offen ist, auch angepinnt (dort zählt nur das Symbol, ein Titel wird nicht angezeigt):
+- nichts offen: normales Symbol; etwas offen: **blauer Punkt** mit der Zahl, Titel `(4) Mail-Übersicht`;
+- **etwas Wichtiges offen: orange-roter Punkt** mit der Zahl der wichtigen Mails, Titel `(2 wichtig) Mail-Übersicht`. Kommt neu etwas
+  Wichtiges dazu, pulsiert das Symbol etwa 5 Sekunden.
+- *Offen* = alles im Tab "Offen" (ohne Egal, Später, Done). *Wichtig* = davon "Jetzt", "Überfällig" oder mit dem Tag "Wichtig"
+  (Logik in `public/js/attention.js`, Symbol in `public/js/tab-signal.js`). Testmails zählen mit.
+- **Systembenachrichtigung** nur für neue wichtige Mails (Absender, Betreff, Grund; mehr als 3 auf einmal werden zusammengefasst, Klick
+  springt zur Mail, Testmails melden nichts). Einschalten mit der Glocke oben rechts: einmal klicken, im Browser "Zulassen"; danach
+  schickt ein Klick eine Testmeldung. Der erste Start meldet nichts (der Bestand gilt als bekannt).
+- Grenzen: der Tab muss geöffnet sein. Hintergrund-Tabs werden vom Browser gedrosselt, die App lädt alle 30 s nach, das kann im
+  Hintergrund bis zu eine Minute dauern. In Brave unter *Einstellungen → System/Leistung* ("Speicher sparen") `localhost:4711` von der
+  Ruhezustand-Funktion ausnehmen, sonst wird der Tab irgendwann eingeschlafen und zeigt nichts mehr.
 
 ## Regeldatei
 `Mail-Regeln.md` liegt im App-Ordner (Einstellung `rulesFile` in `config.json`, relativ zum App-Ordner oder absolut).

@@ -82,3 +82,18 @@ test('Done enthält verworfene, übernommene und beantwortete Mails, zuletzt abg
   await s.scheduler.refresh();
   assert.deepEqual(s.scheduler.state.archive.map((p) => p.id), [2, 1, 3]);
 });
+
+test('Aufgabe übernehmen: Aufgabe wird eingetragen, die Mail bleibt in Offen, die Übernahme wird lokal vermerkt', async () => {
+  const s = setup({ neu: [row(1, { web_link: 'https://outlook/x' }), row(2)] });
+  await s.scheduler.refresh();
+  const added = [];
+  const vault = { addTask: (t) => (added.push(t), { duplicate: false }) };
+  const out = await actions.accept.run({ ...s.services, vault }, { id: 1, text: 'Rückruf', heading: 'Kunden', due: '2026-10-30', important: true });
+  assert.deepEqual(out, { duplicate: false });
+  assert.deepEqual(added.map((t) => [t.text, t.heading, t.link, t.important]), [['Rückruf', 'Kunden', 'https://outlook/x', true]]);
+  assert.deepEqual(s.calls, [], 'n8n-Status bleibt unverändert');
+  assert.deepEqual(s.scheduler.state.items.map((p) => p.id), [1, 2], 'Mail bleibt in Offen');
+  assert.equal(s.scheduler.state.archive.length, 0);
+  assert.equal(s.store.get('tasks', 'M1').text, 'Rückruf');
+  assert.equal(s.store.get('tasks', 'M1').heading, 'Kunden');
+});

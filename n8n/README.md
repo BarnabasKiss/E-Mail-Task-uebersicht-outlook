@@ -64,7 +64,7 @@ Nodes in dieser Reihenfolge, alle in einer Linie verbunden (das Modell und der O
 3. **Pseudonymisieren** – Node "Code", *Run Once for Each Item*, JavaScript, Code aus [`code/pseudonymisieren.js`](code/pseudonymisieren.js).
    - Wandelt HTML in Text, kürzt auf 4000 Zeichen und schneidet zitierte Vorgängermails ab.
    - Ersetzt: Namen (Absender, An, Cc, Anrede, Grußformel, "Herr/Frau …"), E-Mail-Adressen (nur der Teil vor dem @), Links,
-     IBAN, Fahrgestellnummern, Kennzeichen, Geburtsdaten, Schaden- und Aktennummern, Adressen, Telefonnummern,
+     IBAN, Fahrgestellnummern, Kennzeichen, Geburtsdaten, Schaden-, Akten-, Rechnungs- und Belegnummern (auch nach "Akte", "Schaden", "Fall", "Vorgang"), Adressen, Telefonnummern,
      Sozialversicherungsnummern und lange Zahlen. Frist- und andere Datumsangaben bleiben stehen, denn sie bestimmen die Dringlichkeit.
    - Gleicher Wert = gleicher Platzhalter (`[PERSON_1]`, `[TEL_1]`, `[AKTE_2]` …). So bleibt der Zusammenhang für das Modell erhalten.
    - Eigene Namen (Konstante `OWN`) bleiben unmaskiert.
