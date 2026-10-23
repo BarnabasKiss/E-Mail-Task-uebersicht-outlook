@@ -316,6 +316,7 @@ async function openCompose(prefill = {}) {
     schedule: (o) => api.action('schedule', o),
     improve: (o) => api.action('text-improve', o),
     makeSubject: (o) => api.action('text-subject', o),
+    check: (o) => api.action('send-check', o),
     back: () => {
       state.compose = null;
       statusBar.update();
@@ -434,6 +435,7 @@ async function select(id, { keepView = true } = {}) {
       schedule: (payload, sendAt) => api.action('schedule', { kind: 'reply', payload: { id, ...payload }, sendAt }),
       unschedule: (scheduleId) => api.action('schedule-cancel', { id: scheduleId }),
       improve: (o) => api.action('text-improve', o),
+      sendCheck: (o) => api.action('send-check', o),
       saveEdit: (text) => api.action('reply-edit', { id, text }),
       suggest: (q, exclude) => api.suggest(q, exclude),
       outlookDraft: (payload) => api.action('outlook-draft', { id, ...payload }),

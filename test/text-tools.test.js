@@ -53,3 +53,29 @@ test('Ohne Pseudonymisierung (Einstellung) geht der Text unverändert', async ()
   await tools.improveText({ mode: 'spelling', text: 'Hallo Anna Berger', to: [] });
   assert.match(prompts[0], /Hallo Anna Berger/);
 });
+
+test('Ton und Übersetzen: eigene Regeln im Prompt, Platzhalter bleiben erhalten', async () => {
+  const echo = (p) => p.split('TEXT:\n')[1];
+  const { tools, prompts } = make(echo);
+  for (const [mode, rule] of [['kuerzer', /Kürze den Text/], ['foermlicher', /förmlicher/], ['freundlicher', /freundlicher/], ['translate-en', /ins Englische/], ['translate-de', /ins Deutsche/]]) {
+    const out = await tools.improveText({ mode, text: TEXT, to: ['anna@kunde.at'] });
+    assert.match(prompts.at(-1), rule);
+    assert.match(out.text, /\+43 664 1234567/);
+  }
+  const { tools: lossy } = make('Dear Ms [PERSON_1], I will call.');
+  await assert.rejects(lossy.improveText({ mode: 'translate-en', text: TEXT, to: ['anna@kunde.at'] }), /Angaben im Text verändert/);
+});
+
+test('Aus Stichpunkten: Empfänger und bekannte Ansprache gehen mit, Anrede und Gruß setzt das Gedächtnis ein', async () => {
+  const contacts = {
+    effective: (a) => ({ form: a === 'anna@kunde.at' ? { value: 'du' } : null, sprache: null }),
+    applyToDraft: (a, name, text) => text.replace(/^Hallo[^\n]*/, `Hallo ${name.split(' ')[0]},`),
+  };
+  const { tools, prompts } = make('Hallo,\n\nich schaue mir die Unterlagen an.', { contacts });
+  const out = await tools.improveText({ mode: 'notes', text: '- Unterlagen ansehen\n- Termin Freitag', to: ['anna@kunde.at'] });
+  assert.match(prompts[0], /Stichpunkten/);
+  assert.match(prompts[0], /Ansprache: Du/);
+  assert.match(prompts[0], /Empfänger: \[PERSON_\d+\]/);
+  assert.ok(!prompts[0].includes('Anna Berger'));
+  assert.match(out.text, /^Hallo Anna,/);
+});

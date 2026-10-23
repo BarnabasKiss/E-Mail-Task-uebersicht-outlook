@@ -7,14 +7,15 @@ import { icon } from '../icons.js';
 import { createRecipientField } from './recipient-field.js';
 import { startCountdown, UNDO_SECONDS } from '../countdown.js';
 import { createScheduleMenu } from './schedule-menu.js';
+import { confirmWarnings } from './send-warn.js';
 
 /**
  * reply: { names, only: {to, cc}, all: {to, cc}, draft: gemerkter Outlook-Entwurf | null }
  * getText(): Text im Feld. ownSignature(): Signatur deiner letzten Nachricht ('' = keine bekannt). suggest(q, exclude) -> Vorschläge.
  * save({text, to, cc, bcc}) -> { webLink, savedAt, simulated } (wirft bei Fehler). send({done}) -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
- * archive() legt die Mail in Done ab (Knopf nach dem Senden). schedule(payload, sendAt) plant die Mail, unschedule(id) nimmt die Planung zurück.
+ * check({ text, to, cc, bcc }) -> { warnings } (Warnungen vor dem Senden, optional). archive() legt die Mail in Done ab (Knopf nach dem Senden). schedule(payload, sendAt) plant die Mail, unschedule(id) nimmt die Planung zurück.
  */
-export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, schedule, unschedule, undoSeconds = UNDO_SECONDS }) {
+export function createSendBox({ isTest = false, reply, getText, ownSignature, suggest, save, send, discard, archive, schedule, unschedule, check, undoSeconds = UNDO_SECONDS }) {
   const saved = reply.draft;
   const hasAll = JSON.stringify([reply.all.to, reply.all.cc]) !== JSON.stringify([reply.only.to, reply.only.cc]);
   const start = saved ? { to: saved.to, cc: saved.cc, bcc: saved.bcc || [] } : { ...reply.only, bcc: [] };
@@ -38,6 +39,8 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   const sendBtn = el('button', { class: 'btn primary', type: 'button', onclick: () => doSend() }, icon('check', 15), el('span', {}, 'Senden'));
   const sendDoneBtn = el('button', { class: 'btn', type: 'button', title: 'Senden und die Mail gleich in Done ablegen', onclick: () => doSend({ done: true }) }, icon('archive', 15), el('span', {}, 'Senden & Done'));
   const undoBar = el('div', { class: 'send-undo', hidden: true });
+  const warnBox = el('div', { class: 'warn-box', hidden: true, role: 'alert' });
+  const warnOk = () => (check ? confirmWarnings(warnBox, () => check({ text: getText().trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() })) : true);
   const planner = createScheduleMenu({ withDone: true, onPick: (iso, o) => doSchedule(iso, o) });
   let busy = false;
   let countdown = null;
@@ -124,6 +127,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     [to, cc, bcc].forEach((f) => f.commit());
     const why = problem();
     if (why) return toast(why, { error: true });
+    if (!(await warnOk())) return;
     if (!(await doSave())) return;
     const p = payload();
     const who = `${p.to.join(', ')}${p.cc.length ? ` (CC ${p.cc.join(', ')})` : ''}${p.bcc.length ? ` (BCC ${p.bcc.length})` : ''}`;
@@ -148,6 +152,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     [to, cc, bcc].forEach((f) => f.commit());
     const why = problem();
     if (why) return toast(why, { error: true });
+    if (!(await warnOk())) return;
     busy = true;
     update();
     try {
@@ -186,6 +191,7 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
     bccRow,
     sigRow,
     el('div', { class: 'send-actions' }, sendBtn, sendDoneBtn, planner.node, saveBtn),
+    warnBox,
     undoBar,
     status,
   );

@@ -49,7 +49,7 @@ export function renderDetail(container, data, ctx) {
         reply: data.reply,
         ownSignature: () => bodyView?.ownSignature() || '',
         onRegenerate: handlers.regenerate,
-        onPrevious: handlers.previousDraft,
+        onSendCheck: handlers.sendCheck,
         onOutlookDraft: handlers.outlookDraft,
         onOutlookDraftDelete: handlers.outlookDraftDelete,
         onSend: handlers.outlookSend,

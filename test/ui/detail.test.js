@@ -170,20 +170,28 @@ test('Zusammenfassung ist immer sichtbar, der Verlauf eine zunächst zugeklappte
   toggle.click();
   assert.deepEqual(seen, ['summary', 'message', 'summary']);
 });
-test('Entwurf: Varianten und Hinweis gehen mit dem Text im Feld an regenerate, "Vorige Version" nur mit Vorversion', opts, async () => {
-  const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: null, previous: null } };
-  const { box, calls } = await render(withDraft);
-  const buttons = () => Object.fromEntries([...box.querySelectorAll('.draft-tools .btn')].map((b) => [b.textContent.trim(), b]));
-  assert.deepEqual(Object.keys(buttons()), ['Kürzer', 'Förmlicher', 'Freundlicher', 'Ablehnung', 'Vorige Version']);
-  assert.ok(buttons()['Vorige Version'].hidden, 'ohne Vorversion versteckt');
+const menuItem = (root, name) => [...root.querySelectorAll('.menu-item')].find((b) => b.querySelector('span').textContent.trim() === name);
+const toolMenus = (root) => [...root.querySelectorAll('.imp-bar .menu-wrap > .btn')].map((b) => b.textContent.trim());
+const withImprove = { improve: async (o) => ({ text: `${o.text} [${o.mode}]` }) };
+
+test('Entwurf: Aufbau (Hinweis über dem Text, Werkzeugleiste darunter), kein Statustext, Ablehnung und Neu erzeugen laufen über regenerate', opts, async () => {
+  const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: 'kuerzer', previous: { text: 'alt' } } };
+  const { box, calls } = await render(withDraft, { extra: withImprove });
+  assert.equal(box.querySelector('.draft-status').textContent, '', 'kein "Bereit. Änderungen hier werden nicht gespeichert."');
+  assert.equal(box.querySelector('.draft-tools'), null, 'keine Variantenknöpfe mehr');
+  const order = [...box.querySelectorAll('.draft > *')].map((c) => (c.classList.contains('draft-hint-row') ? 'Hinweis' : c.classList.contains('draft-text') ? 'Text' : c.classList.contains('imp-bar') ? 'Werkzeuge' : '')).filter(Boolean);
+  assert.deepEqual(order, ['Hinweis', 'Text', 'Werkzeuge']);
+  assert.deepEqual(toolMenus(box), ['Umschreiben', 'Übersetzen', 'Prüfen']);
+  assert.deepEqual([...box.querySelectorAll('.draft .menu-wrap')[0].querySelectorAll('.menu-item span')].map((x) => x.textContent), ['Aus Stichpunkten eine Mail', 'Kürzer', 'Förmlicher', 'Freundlicher', 'Ablehnung']);
+  assert.ok(box.querySelector('.imp-versions').hidden, 'ohne Änderung keine Versionsliste');
 
   const area = box.querySelector('.draft-text');
   area.value = 'Hallo Helga,\n\nich schaue es mir an.';
   area.dispatchEvent(new w.Event('input'));
   box.querySelector('.draft-hint').value = 'sag, dass ich nächste Woche Zeit habe';
-  buttons().Kürzer.click();
+  menuItem(box, 'Ablehnung').click();
   await tick(10);
-  assert.deepEqual(calls.at(-1), ['regenerate', { variant: 'kuerzer', hint: 'sag, dass ich nächste Woche Zeit habe', base: 'Hallo Helga,\n\nich schaue es mir an.' }]);
+  assert.deepEqual(calls.at(-1), ['regenerate', { variant: 'ablehnung', hint: 'sag, dass ich nächste Woche Zeit habe', base: 'Hallo Helga,\n\nich schaue es mir an.' }]);
   assert.equal(box.querySelector('.draft-hint').value, '', 'Hinweis ist verbraucht');
 
   box.querySelector('.draft-hint').value = 'nur kurz';
@@ -193,15 +201,33 @@ test('Entwurf: Varianten und Hinweis gehen mit dem Text im Feld an regenerate, "
   assert.equal(calls.at(-1)[1].hint, 'nur kurz');
 });
 
-test('Entwurf: ohne Text im Feld sind nur Ablehnung und Neu erzeugen möglich; mit Vorversion erscheint der Zurück-Knopf', opts, async () => {
-  const { box, calls } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: '', previous: { text: 'alt' }, variant: 'kuerzer' } });
-  const btn = (name) => [...box.querySelectorAll('.draft-tools .btn')].find((b) => b.textContent.trim() === name);
-  assert.ok(btn('Kürzer').disabled && btn('Förmlicher').disabled && btn('Freundlicher').disabled);
-  assert.ok(!btn('Ablehnung').disabled);
-  assert.ok(!btn('Vorige Version').hidden);
-  btn('Vorige Version').click();
-  await tick(10);
-  assert.deepEqual(calls.at(-1), ['previousDraft']);
+test('Entwurf: ohne Text im Feld ist nur Ablehnung (und Neu erzeugen) möglich', opts, async () => {
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: '', previous: null } }, { extra: withImprove });
+  assert.ok(menuItem(box, 'Kürzer').disabled && menuItem(box, 'Ins Englische').disabled && menuItem(box, 'Rechtschreibung').disabled);
+  assert.ok(!menuItem(box, 'Ablehnung').disabled);
+});
+
+test('Antwort: alles in einer Versionsliste (Kürzer, Übersetzen, Prüfen), ↶ und ↷ blättern, Version n von m', opts, async () => {
+  const { box } = await render(draftData(reply()), { extra: withImprove });
+  const area = box.querySelector('.draft-text');
+  const label = () => box.querySelector('.imp-version').textContent;
+  menuItem(box, 'Kürzer').click();
+  await tick(30);
+  assert.equal(area.value, 'Hallo Helga,\n\nTermin passt. [kuerzer]');
+  menuItem(box, 'Ins Englische').click();
+  await tick(30);
+  assert.equal(area.value, 'Hallo Helga,\n\nTermin passt. [kuerzer] [translate-en]');
+  assert.equal(label(), 'Version 3 von 3');
+  const [prev, next] = box.querySelectorAll('.imp-versions .btn');
+  prev.click();
+  assert.equal(area.value, 'Hallo Helga,\n\nTermin passt. [kuerzer]');
+  prev.click();
+  assert.equal(area.value, 'Hallo Helga,\n\nTermin passt.');
+  assert.ok(prev.disabled, 'am Anfang');
+  next.click();
+  next.click();
+  assert.equal(area.value, 'Hallo Helga,\n\nTermin passt. [kuerzer] [translate-en]', 'wieder vor');
+  assert.ok(next.disabled);
 });
 
 const addr = (name, address) => ({ name, address });
@@ -539,7 +565,7 @@ const setText = (box, v) => {
 test('Neue Mail: Aufbau wie die Antwort (zuerst der Text, dann Betreff, dann An/CC/BCC und die Knöpfe)', opts, async () => {
   const { box } = await composeView();
   const order = [...box.querySelectorAll('.cp-card > *')].map((c) => (c.classList.contains('imp-bar') ? 'Werkzeuge' : c.classList.contains('cp-text') ? 'Text' : c.classList.contains('cp-subject-row') ? 'Betreff' : c.querySelector?.('.rf[data-label="An"]') ? 'An' : c.querySelector?.('.rf[data-label="CC"]') ? 'CC' : c.classList.contains('send-actions') ? 'Knöpfe' : '')).filter(Boolean);
-  assert.deepEqual(order, ['Werkzeuge', 'Text', 'Betreff', 'An', 'CC', 'Knöpfe']);
+  assert.deepEqual(order, ['Text', 'Werkzeuge', 'Betreff', 'An', 'CC', 'Knöpfe']);
   assert.deepEqual([...box.querySelectorAll('.cp-card .send-actions .btn')].map((b) => b.textContent.trim()), ['Senden', 'Senden planen', 'In Outlook ablegen', 'Verwerfen']);
 });
 
@@ -576,28 +602,52 @@ test('Neue Mail: Betreff per Knopf vorschlagen (nur mit Text) und danach änderb
   assert.equal(subj.value, 'Angebot Oktober (angepasst)');
 });
 
-test('Neue Mail: Verbessern mit Rückgängig (Rechtschreibung, Struktur) und Lücken als Liste, Text bleibt bei Lücken unverändert', opts, async () => {
+test('Neue Mail: Werkzeuge (Prüfen, Übersetzen, Stichpunkte) mit Versionsliste, Lücken als Liste, Text bleibt bei Lücken unverändert', opts, async () => {
   const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'S', text: 'Hallo Max' } });
-  const imp = (name) => [...box.querySelectorAll('.imp-bar .btn')].find((b) => b.textContent.trim() === name);
-  assert.deepEqual([...box.querySelectorAll('.imp-bar .btn')].filter((b) => !b.hidden).map((b) => b.textContent.trim()), ['Rechtschreibung', 'Rechtschreibung & Struktur', 'Lücken suchen', 'Diktieren']);
-  imp('Rechtschreibung').click();
+  assert.deepEqual([...box.querySelectorAll('.imp-bar > .btn, .imp-bar > .menu-wrap > .btn')].map((b) => b.textContent.trim()), ['Diktieren', 'Umschreiben', 'Übersetzen', 'Prüfen']);
+  assert.deepEqual([...box.querySelectorAll('.menu-item span')].map((x) => x.textContent), ['Aus Stichpunkten eine Mail', 'Kürzer', 'Förmlicher', 'Freundlicher', 'Ins Englische', 'Ins Deutsche', 'Rechtschreibung', 'Rechtschreibung & Struktur', 'Lücken suchen']);
+  menuItem(box, 'Rechtschreibung').click();
   await tick(30);
   assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert)');
   assert.deepEqual(calls.find((c) => c[0] === 'improve')[1], { mode: 'spelling', text: 'Hallo Max', subject: 'S', to: ['max@y.at'] });
-  imp('Rechtschreibung & Struktur').click();
+  menuItem(box, 'Aus Stichpunkten eine Mail').click();
   await tick(30);
+  assert.equal(calls.filter((c) => c[0] === 'improve').at(-1)[1].mode, 'notes');
   assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert) (verbessert)');
-  imp('Vorige Version').click();
+  const [prev] = box.querySelectorAll('.imp-versions .btn');
+  prev.click();
   assert.equal(box.querySelector('.cp-text').value, 'Hallo Max (verbessert)');
-  imp('Vorige Version').click();
+  prev.click();
   assert.equal(box.querySelector('.cp-text').value, 'Hallo Max', 'zwei Schritte zurück');
-  assert.ok(imp('Vorige Version').hidden, 'nichts mehr zurückzuholen');
-  imp('Lücken suchen').click();
+  assert.ok(prev.disabled, 'nichts mehr zurückzuholen');
+  menuItem(box, 'Lücken suchen').click();
   await tick(30);
   assert.equal(box.querySelector('.cp-text').value, 'Hallo Max', 'Lücken ändern den Text nicht');
   assert.match(box.querySelector('.imp-gaps').textContent, /1 mögliche Lücke.*Frist.*Es fehlt ein Datum/);
   box.querySelector('.imp-gaps li .icon-btn').click();
   assert.ok(box.querySelector('.imp-gaps').hidden, 'ausgeblendet, wenn alle erledigt sind');
+});
+
+test('Neue Mail: Warnungen vor dem Senden müssen bestätigt werden; "Zurück" sendet nichts, "Trotzdem senden" macht weiter', opts, async () => {
+  const warned = [];
+  const check = async (o) => (warned.push(o), { warnings: [{ title: 'Im Text ist von einem Anhang die Rede', hint: 'Die App hängt nichts an.' }] });
+  const { box, calls } = await composeView({ prefill: { to: ['max@y.at'], subject: 'S', text: 'Anbei die Unterlagen' }, check });
+  const send = [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden');
+  send.click();
+  await tick(10);
+  assert.deepEqual(warned[0], { text: 'Anbei die Unterlagen', to: ['max@y.at'], cc: [], bcc: [] });
+  assert.ok(!box.querySelector('.warn-box').hidden);
+  assert.match(box.querySelector('.warn-box').textContent, /Anhang/);
+  assert.equal(calls.filter((c) => c[0] === 'save').length, 0, 'noch nichts abgelegt');
+  [...box.querySelectorAll('.warn-box .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(10);
+  assert.ok(box.querySelector('.warn-box').hidden);
+  assert.equal(calls.filter((c) => c[0] === 'save').length, 0);
+  send.click();
+  await tick(10);
+  [...box.querySelectorAll('.warn-box .btn')].find((b) => b.textContent.includes('Trotzdem')).click();
+  await tick(30);
+  assert.equal(calls.filter((c) => c[0] === 'save').length, 1, 'nach Bestätigung wird abgelegt');
 });
 
 test('Neue Mail: Entwurf wird in der App gespeichert (nicht in Outlook), Zurück behält ihn, Verwerfen löscht ihn', opts, async () => {
@@ -831,7 +881,7 @@ test('Antwort: Verbessern (mit Kontext der Mail), Rückgängig und gemerkte Änd
     outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {},
   };
   const { box } = await render(draftData(reply()), { extra });
-  const imp = (name) => [...box.querySelectorAll('.draft .imp-bar .btn')].find((b) => b.textContent.trim() === name);
+  const imp = (name) => menuItem(box, name);
   imp('Rechtschreibung').click();
   await tick(30);
   assert.equal(box.querySelector('.draft-text').value, 'Hallo Helga,\n\nTermin passt (korrigiert).');
@@ -839,7 +889,7 @@ test('Antwort: Verbessern (mit Kontext der Mail), Rückgängig und gemerkte Änd
   assert.equal(improved[0].text, 'Hallo Helga,\n\nTermin passt.');
   assert.deepEqual(improved[0].to, ['helga@partner.at']);
   assert.match(improved[0].context, /Hallo Barni/, 'der Text der Mail geht als Kontext mit (für "Lücken")');
-  imp('Vorige Version').click();
+  box.querySelector('.imp-versions .btn').click();
   assert.equal(box.querySelector('.draft-text').value, 'Hallo Helga,\n\nTermin passt.');
   const area = box.querySelector('.draft-text');
   area.value = 'Hallo Helga, ich habe es geändert.';

@@ -53,11 +53,9 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
   aus Bildern und Anhängen und dem Ergebnis der Prüfung (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
 - **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**. Sie steht über der Zusammenfassung.
   Die Mail bleibt danach in „Offen“; die Zeile zeigt „✓ Aufgabe übernommen“ mit „Weitere Aufgabe“.
-- **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Darunter die Werkzeuge:
-  - **Kürzer, Förmlicher, Freundlicher** überarbeiten den Text im Feld (auch deine Änderungen daran). **Ablehnung** schreibt neu: höflich ablehnen, ohne einen Grund
-    zu erfinden (fehlt er, steht dort `[BITTE ERGÄNZEN: Grund]`).
-  - **Hinweis**: Freitext für diese Antwort („sag, dass ich nächste Woche Zeit habe“), wirkt bei jeder Variante und bei „Neu erzeugen“ (Enter im Feld erzeugt sofort neu).
-  - **Vorige Version** geht einen Schritt zurück; nochmal klicken stellt den Entwurf wieder her.
+- **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Aufbau: oben der **Hinweis** (Freitext für diese Antwort, z. B. „sag, dass ich nächste Woche Zeit habe“; Enter erzeugt sofort neu), darunter der Text, darunter die [Werkzeugleiste](#werkzeuge-für-den-text).
+  - **Umschreiben ▾** enthält auch **Ablehnung**: schreibt neu, höflich ablehnen, ohne einen Grund zu erfinden (fehlt er, steht dort `[BITTE ERGÄNZEN: Grund]`).
+  - Alles, auch „Neu erzeugen“, landet in **einer** Versionsliste (↶ ↷, „Version 3 von 5“).
   - Anrede und Gruß setzt die App aus dem [Absender-Gedächtnis](#absender-profil-und-gedächtnis) ein, wenn sie für den Absender bekannt sind.
 
 ## Verlauf als Nachrichten
@@ -72,7 +70,7 @@ Die Sektion **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, 
 
 ## Antwort aus der App: Entwurf ablegen und senden
 Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewertung keine nötig ist (dann ohne automatischen Entwurf, du schreibst selbst oder klickst „Jetzt erzeugen“). In Done gibt es sie nicht.
-- **Über dem Text** stehen die [Werkzeuge](#werkzeuge-für-den-text-rechtschreibung-struktur-lücken-diktieren) (Rechtschreibung, Struktur, Lücken, Diktieren).
+- **Über dem Text** stehen die [Werkzeuge](#werkzeuge-für-den-text) (Rechtschreibung, Struktur, Lücken, Diktieren).
 - **An, CC und BCC** sind Felder mit Adressen als Chips. Vorbelegt ist „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen).
   BCC steht hinter „+ BCC“. Beim Tippen schlägt das [Adressbuch](#kontakte-das-adressbuch) Personen vor (Pfeiltasten und Enter, oder Klick); Enter, Komma, Semikolon oder Leerzeichen übernehmen eine getippte Adresse,
   mehrere eingefügte Adressen („Name <a@x.at>, b@y.at“) werden sofort zerlegt, die Rücktaste im leeren Feld entfernt die letzte. Eine Adresse steht nur in einem Feld (An vor CC vor BCC).
@@ -87,7 +85,7 @@ Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewer
 
 ## Neue Mail schreiben
 Der Knopf **Neue Mail** oben rechts (oder **Neue Mail** im Absender-Profil, dort mit der Adresse vorbelegt) öffnet die Schreibansicht anstelle der Mail. Sie ist wie die Antwort aufgebaut:
-1. **Text** oben, darüber die [Werkzeuge](#werkzeuge-für-den-text-rechtschreibung-struktur-lücken-diktieren).
+1. **Text** oben, darüber die [Werkzeuge](#werkzeuge-für-den-text).
 2. **Betreff** darunter. Der Knopf **Betreff vorschlagen** lässt Claude aus dem Text einen Betreff machen (geht erst mit Text, ein weiterer Klick macht einen neuen), du kannst ihn danach beliebig ändern.
 3. **An, CC, BCC** wie bei der Antwort (Chips, Vorschläge aus dem [Adressbuch](#kontakte-das-adressbuch)); darunter die Knöpfe.
 - **Meine Signatur anhängen:** erscheint, sobald die App deine Signatur in einem Verlauf erkannt hat (sie merkt sie sich); „ansehen“ zeigt den Text. Anhänge lassen sich nicht mitsenden.
@@ -96,12 +94,13 @@ Der Knopf **Neue Mail** oben rechts (oder **Neue Mail** im Absender-Profil, dort
 - **Entwurf:** Was du schreibst, speichert die App laufend **in der App** (nicht in Outlook); „Zurück“ und jedes Verlassen behalten ihn. Du findest ihn unter **Entwürfe**. **Verwerfen** löscht ihn (und einen abgelegten Outlook-Entwurf).
 - Gesperrt sind Senden, Planen und Ablegen ohne Text, Betreff oder Empfänger und mit einer halben Adresse in einem Feld; der Tooltip nennt den Grund. Zum Ausprobieren eignet sich die eigene Adresse bei An.
 
-## Werkzeuge für den Text: Rechtschreibung, Struktur, Lücken, Diktieren
-Über dem Text jeder neuen Mail und jeder Antwort:
-- **Rechtschreibung** korrigiert nur Rechtschreibung, Grammatik und Zeichensetzung; Wortwahl, Ton, Anrede und Aufbau bleiben.
-- **Rechtschreibung & Struktur** macht zusätzlich Absätze, Reihenfolge und Sätze klarer, ohne neue Fakten, Zusagen oder Termine hinzuzufügen und ohne die Ansprache (Du oder Sie) zu ändern.
-- **Lücken suchen** ändert den Text nicht, sondern listet, was fehlen könnte: eine Bitte ohne Frist, ein genannter Anhang, der nicht dabei ist, ein Termin ohne Datum, eine unbeantwortete Frage der Mail (bei Antworten kennt Claude die Mail), ein fehlender nächster Schritt. Jeder Hinweis lässt sich mit dem × erledigen.
-- **Vorige Version** (erscheint nach einer Änderung) holt den Text von vorher zurück, bis zu zehn Schritte.
+## Werkzeuge für den Text
+Eine Leiste unter dem Text jeder Antwort und jeder neuen Mail: **Diktieren | Umschreiben ▾ | Übersetzen ▾ | Prüfen ▾ | ↶ Version n von m ↷**.
+- **Umschreiben:** *Aus Stichpunkten eine Mail* macht aus Stichpunkten im Feld eine fertige Mail; Empfänger, Du/Sie und Sprache kennt die App aus dem Gedächtnis, Anrede und Gruß setzt sie so ein, wie du sie dieser Person gegenüber schreibst (nichts wird erfunden, Offenes bleibt offen). *Kürzer*, *Förmlicher*, *Freundlicher* überarbeiten den Text im Feld.
+- **Übersetzen:** *Ins Englische* oder *Ins Deutsche*, Ton und Aufbau bleiben.
+- **Prüfen:** *Rechtschreibung* korrigiert nur Rechtschreibung, Grammatik und Zeichensetzung. *Rechtschreibung & Struktur* macht zusätzlich Absätze, Reihenfolge und Sätze klarer, ohne neue Fakten und ohne die Ansprache zu ändern. *Lücken suchen* ändert den Text nicht, sondern listet, was fehlen könnte (Bitte ohne Frist, Anhang, Termin ohne Datum, unbeantwortete Frage; bei Antworten kennt Claude die Mail). Jeder Hinweis lässt sich mit dem × erledigen.
+- **Versionen ↶ ↷:** jede Änderung (auch deine eigenen Eingaben zwischen den Änderungen) ist eine Version, bis zu 30; mit ↶ und ↷ blätterst du, ein Tooltip nennt, was die Version war.
+- **Warnungen vor dem Senden:** vor Senden und Planen prüft die App lokal (ohne KI) und zeigt Hinweise, die du mit „Trotzdem senden“ bestätigst oder mit „Zurück und ändern“ aufgreifst: falsche Ansprache (Text siezt, die Person wird sonst geduzt, oder umgekehrt), Empfänger aus verschiedenen Firmen sichtbar in An/CC, ein BCC, der auch in An/CC steht, und „Anhang“ im Text (die App hängt nichts an).
 - **Diktieren** schreibt, was du sagst, an die Schreibmarke, mit Satzzeichen. Die Erkennung läuft lokal auf deinem Rechner (auch in Brave, unter Linux/Wayland/KDE): einmalig `./install-speech.sh` ausführen und die App neu starten; beim ersten Klick fragt der Browser nach dem Mikrofon (erlauben). Ohne die Einrichtung nutzt die App in Chrome/Edge die Browser-Erkennung. Befehle: „Komma“, „Punkt“, „Fragezeichen“, „Ausrufezeichen“, „Doppelpunkt“, „neue Zeile“, „neuer Absatz“, „Klammer auf“, „Klammer zu“. Danach helfen die Werkzeuge beim Aufräumen.
   Die Spracherkennung kommt vom Browser: In Chrome und Edge geht sie (das Audio läuft dabei über den Anbieter, siehe [Datenschutz](datenschutz.md#textwerkzeuge-und-spracheingabe)), in Brave und Firefox fehlt sie oder ist abgeschaltet;
   der Knopf sagt dann, was geht. Als Ersatz taugt das Diktat des Betriebssystems (Windows: Win+H).

@@ -627,7 +627,21 @@ a.att:hover { background: var(--hover); }
 
 /* Neue Mail und Antwort: Werkzeuge, Betreff, Planen */
 .imp-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
-.imp-hint { flex: 1 1 200px; font-size: 12px; color: var(--muted); min-width: 0; }
+.imp-hint { flex: 1 1 100%; order: 9; font-size: 12px; color: var(--muted); min-width: 0; }
+.imp-hint:empty { display: none; }
+.imp-bar .btn.small { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.imp-bar .btn.icon-only { padding: 0 6px; }
+.imp-bar .flip svg { transform: scaleX(-1); }
+.imp-versions { display: inline-flex; align-items: center; gap: 2px; margin-left: auto; }
+.imp-versions[hidden] { display: none; }
+.imp-version { font-size: 12px; color: var(--muted); white-space: nowrap; padding: 0 4px; }
+.menu.left { left: 0; right: auto; }
+.draft-hint-row { display: flex; margin-bottom: 8px; }
+.warn-box { margin-top: 8px; padding: 9px 11px; border-radius: 8px; background: color-mix(in srgb, var(--heute) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--heute) 30%, var(--border)); font-size: 12.5px; }
+.warn-box[hidden] { display: none; }
+.warn-head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.warn-box ul { margin: 0 0 8px; padding-left: 18px; display: grid; gap: 3px; }
+.warn-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .dict-btn.listening { background: color-mix(in srgb, var(--jetzt) 14%, var(--panel)); border-color: var(--jetzt); color: var(--jetzt); animation: dict-pulse 1.4s ease-in-out infinite; }
 @keyframes dict-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--jetzt) 20%, transparent); } }
 .imp-gaps { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: color-mix(in srgb, var(--heute) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--heute) 30%, var(--border)); font-size: 12.5px; }

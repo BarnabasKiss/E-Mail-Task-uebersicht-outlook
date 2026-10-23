@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 - **Verlauf wie ein Chat:** die Nachrichten einer Konversation, deine rechts, die der anderen links in je einer Farbe, mit kompakter Kopfzeile (wer an wen, CC)
   und Signaturen als Dropdown. Aufbau in einer Spalte: Person, Aufgabe, Zusammenfassung, Antwortentwurf, darunter der aufklappbare Verlauf.
 - **Antwort und neue Mail aus der App:** An, CC, BCC mit Vorschlägen aus einem eigenen Adressbuch, 30 Sekunden Bedenkzeit vor dem Senden, **Senden planen**, Entwürfe in der App;
-  die Mail bleibt offen, „Senden & Done“ legt sie gleich ab. Werkzeuge für den Text: Rechtschreibung, Struktur, Lücken suchen, Betreff vorschlagen und Diktieren (mit Rückgängig).
+  die Mail bleibt offen, „Senden & Done“ legt sie gleich ab. Werkzeugleiste für den Text: Diktieren (lokal), Umschreiben (auch aus Stichpunkten), Übersetzen, Prüfen und eine gemeinsame Versionsliste; Warnungen vor dem Senden (Du/Sie, Firmen, BCC, Anhang).
 - **Sammelaktionen:** mehrere Mails mit Strg + Klick markieren und per Button gemeinsam in Done legen, zurückstellen, löschen oder ihre Absender ignorieren.
 - **Absender-Gedächtnis und Profil:** Du/Sie, Anrede, Gruß, Sprache und Notizen je Person und Firma, gelernt aus deinen gesendeten Antworten und
   aus vielen gesendeten Mails auf einmal (anonymisiert), im Absender-Profil prüf- und änderbar.

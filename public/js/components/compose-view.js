@@ -6,15 +6,16 @@ import { icon } from '../icons.js';
 import { createRecipientField } from './recipient-field.js';
 import { createImproveBar } from './improve-bar.js';
 import { createScheduleMenu } from './schedule-menu.js';
+import { confirmWarnings } from './send-warn.js';
 import { startCountdown, UNDO_SECONDS } from '../countdown.js';
 
 /**
  * opts: { signature, prefill: { to, cc, subject, text, draftId }, suggest(q, exclude), appSave(p) -> { id, updatedAt }, appDelete(id),
  *         save(p) -> { draftId, webLink, savedAt }, send({ draftId }) -> true, discard({ draftId }), schedule({ kind, payload, sendAt, fromDraftId }),
- *         improve({ mode, text, subject, to }), makeSubject({ text, to }), back(), undoSeconds, autosaveMs }
+ *         improve({ mode, text, subject, to }), makeSubject({ text, to }), check({ text, to, cc, bcc }) -> { warnings } (optional), back(), undoSeconds, autosaveMs }
  * @returns {{ dirty(): boolean, flush(): Promise }} dirty() = es gibt Änderungen, die noch nicht in der App gespeichert sind
  */
-export function renderCompose(container, { signature = '', prefill = {}, suggest, appSave, appDelete, save, send, discard, schedule, improve, makeSubject, back, undoSeconds = UNDO_SECONDS, autosaveMs = 1200 }) {
+export function renderCompose(container, { signature = '', prefill = {}, suggest, appSave, appDelete, save, send, discard, schedule, improve, makeSubject, check, back, undoSeconds = UNDO_SECONDS, autosaveMs = 1200 }) {
   const field = (label, values) => createRecipientField({ label, values, suggest, onChange: () => changed() });
   const to = field('An', prefill.to || []);
   const cc = field('CC', prefill.cc || []);
@@ -33,6 +34,8 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
   const saved = el('span', { class: 'cp-saved' });
   const status = el('span', { class: 'send-status', role: 'status' });
   const undoBar = el('div', { class: 'send-undo', hidden: true });
+  const warnBox = el('div', { class: 'warn-box', hidden: true, role: 'alert' });
+  const warnOk = () => (check ? confirmWarnings(warnBox, () => check({ text: text.value.trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() })) : true);
 
   const bar = createImproveBar({
     getText: () => text.value,
@@ -159,6 +162,7 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
     [to, cc, bcc].forEach((f) => f.commit());
     const why = problem();
     if (why) return toast(why, { error: true });
+    if (!(await warnOk())) return;
     if (!(await doSave())) return;
     bar.stopDictation();
     const p = payload();
@@ -187,6 +191,7 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
     [to, cc, bcc].forEach((f) => f.commit());
     const why = problem();
     if (why) return toast(why, { error: true });
+    if (!(await warnOk())) return;
     busy = true;
     update();
     try {
@@ -227,8 +232,8 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
       el(
         'section',
         { class: 'card cp-card', 'aria-label': 'Neue Mail' },
-        bar.node,
         text,
+        bar.node,
         bar.gapsNode,
         sigRow,
         el('div', { class: 'cp-subject-row' }, el('label', {}, 'Betreff'), subject, subjectBtn),
@@ -236,6 +241,7 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
         el('div', { class: 'send-row' }, cc.node, bccLink),
         bccRow,
         el('div', { class: 'send-actions' }, sendBtn, planner.node, saveBtn, discardBtn),
+        warnBox,
         undoBar,
         status,
       ),

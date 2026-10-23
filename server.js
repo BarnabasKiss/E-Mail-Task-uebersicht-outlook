@@ -57,7 +57,7 @@ const drafts = createDrafts({
 const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames, contacts });
 const addressBook = createAddressBook({ file: dataFile('address-book.json'), ownAddresses: [cfg.ownAddress, ...(cfg.ownAliases || [])], log });
 const outbox = createOutbox({ n8n, store, getScheduler, drafts, addressBook, log });
-const textTools = createTextTools({ claude, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize, nameOf: (a) => addressBook.search(a, { limit: 1 }).find((p) => p.address === String(a).toLowerCase())?.name || '' });
+const textTools = createTextTools({ claude, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize, contacts, nameOf: (a) => addressBook.search(a, { limit: 1 }).find((p) => p.address === String(a).toLowerCase())?.name || '' });
 const speech = createSpeech({
   enabled: cfg.speech?.enabled !== false,
   python: cfg.speech?.python || defaultPython(cfg.dataDir),
