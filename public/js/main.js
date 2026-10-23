@@ -305,7 +305,7 @@ async function select(id, { keepView = true } = {}) {
       thread: (before) => api.thread(id, { before }),
       outlookDraft: (payload) => api.action('outlook-draft', { id, ...payload }),
       outlookDraftDelete: () => api.action('outlook-draft-delete', { id }),
-      outlookSend: () => perform('outlook-send', { id }, { message: 'Gesendet. Die Mail liegt jetzt unter Done.' }),
+      outlookSend: () => perform('outlook-send', { id }, { message: (r) => (r?.simulated ? 'Testmodus: Es wurde nichts gesendet. Die Mail liegt jetzt unter Done.' : 'Gesendet. Die Mail liegt jetzt unter Done.') }),
       regenerate: async (opts = {}) => {
         await api.action('regenerate-draft', { id, ...opts }).catch(failed);
         await refreshDraft(id);

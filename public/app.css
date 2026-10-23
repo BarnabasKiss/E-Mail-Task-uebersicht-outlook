@@ -552,3 +552,5 @@ a.att:hover { background: var(--hover); }
 .v-toggle .icon:first-child { color: var(--muted); transition: transform .12s ease; transform: rotate(-90deg); }
 .v-toggle[aria-expanded="true"] .icon:first-child { transform: none; }
 .card.verlauf .msg-full { margin-top: 6px; }
+
+.send-test { display: flex; align-items: center; gap: 6px; margin: 0; padding: 5px 8px; border-radius: 8px; background: color-mix(in srgb, var(--test) 12%, transparent); color: var(--test); font-size: 12px; font-weight: 600; }

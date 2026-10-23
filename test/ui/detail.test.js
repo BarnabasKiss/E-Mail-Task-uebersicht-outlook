@@ -345,7 +345,7 @@ test('Senden: legt ab, wartet mit Rückgängig, sendet dann; Rückgängig bricht
   assert.match(b2.querySelector('.send-status').textContent, /Senden abgebrochen/);
 });
 
-test('Senden: gesperrt bei offenen Platzhaltern, ohne Empfänger und bei Testmails', opts, async () => {
+test('Senden: gesperrt bei offenen Platzhaltern und ohne Empfänger; bei Testmails mit Hinweis auf den Testmodus', opts, async () => {
   const extra = { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
   const withPlaceholder = { ...draftData(reply()), draft: { text: 'Termin: [BITTE ERGÄNZEN: Datum]', previous: null } };
   const a = (await render(withPlaceholder, { extra })).box;
@@ -356,7 +356,8 @@ test('Senden: gesperrt bei offenen Platzhaltern, ohne Empfänger und bei Testmai
   assert.ok(send(b).disabled);
   assert.match(send(b).title, /Empfänger/);
   const t = (await render({ ...draftData(reply()), proposal: proposal({ antwort_noetig: true, is_test: true }) }, { extra })).box;
-  assert.equal(t.querySelector('.send-box'), null);
+  assert.match(t.querySelector('.send-test').textContent, /Testmodus/);
+  assert.ok(!send(t).disabled, 'im Testmodus geht Senden (simuliert)');
 });
 
 test('Senden: Signatur aus dem Verlauf lässt sich anhängen', opts, async () => {

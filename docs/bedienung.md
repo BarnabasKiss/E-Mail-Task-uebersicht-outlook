@@ -135,4 +135,10 @@ Mails mit `mail_id` ab `TEST-` sind violett als TEST markiert, haben keinen Outl
 Vorschau der Tabellenzeile. Zum Ausprobieren:
 - erste Vorschauzeile `[Rolle: cc]` oder `[Rolle: shared]` stellt ein, wie die Mail angekommen ist;
 - `[bild:name.png]` in der Vorschau fügt ein Bild ein: Datei `bild-…` in `<Datenordner>/test-anhaenge/<mail_id>/`;
-- andere Dateien in diesem Ordner erscheinen als Anhänge.
+- andere Dateien in diesem Ordner erscheinen als Anhänge;
+- `verlauf.json` in diesem Ordner ist der **Verlauf** der Testmail: eine Liste von Nachrichten `{ id, from, to, cc, sent, body }` (`from`, `to`, `cc` mit `name` und `address`, `sent` als ISO-Zeit,
+  `body` als Text). Die Nachricht mit der `id` der Testmail zeigt den Text aus der Vorschau. Der Verlauf wird wie ein echter angezeigt (Farben, Signaturen, „Ältere Nachrichten laden“);
+- **Ablegen und Senden** sind bei Testmails nur simuliert („Testmodus“): an Outlook geht nichts, gelernt wird daraus nichts, die Testmail wandert nach dem „Senden“ nach Done.
+
+Der Testeintrag **TEST-VERLAUF-001** („TEST Verlauf: Rechnung 2026-0815 prüfen (dringend)“) deckt fast alles ab: Aufgabe mit Frist, „Wichtig“-Tags, Anhänge aller Typen, ein Bild im Text mit OCR,
+ein Verlauf aus 14 Nachrichten von vier Personen mit CC, Signaturen, zitiertem Text und einer „Gesendet von meinem iPhone“-Zeile, Namen, Kennzeichen, Telefonnummer und IBAN für die Anonymisierung.

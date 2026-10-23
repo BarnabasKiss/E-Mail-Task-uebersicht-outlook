@@ -180,10 +180,9 @@ test('Outlook-Entwurf: legt ihn an (sendet nichts), prüft Empfänger, ersetzt e
   await assert.rejects(actions['outlook-draft'].run(s.services, { id: 1, text: ' ', to: ['h@x.at'] }), /leer/);
 });
 
-test('Outlook-Entwurf: Testmails gehen nicht, Löschen entfernt nur den gemerkten Entwurf', async () => {
+test('Outlook-Entwurf: Löschen entfernt nur den gemerkten Entwurf', async () => {
   const s = outlookSetup();
-  s.scheduler.state.items = [row(2, { mail_id: 'TEST-1' }), row(1)];
-  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 2, text: 'x', to: ['h@x.at'] }), /Testnachrichten/);
+  s.scheduler.state.items = [row(1)];
   await actions['outlook-draft'].run(s.services, { id: 1, text: 'x', to: ['h@x.at'] });
   const draftId = s.store.get('outlookDrafts', 'M1').draftId;
   assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 1 }), { deleted: true });
@@ -201,10 +200,25 @@ test('Senden: nur der gemerkte Entwurf, nicht mit offenen Platzhaltern; danach b
   assert.ok(!s.sent.some((c) => c[0] === 'sendDraft'), 'nichts gesendet');
   await actions['outlook-draft'].run(s.services, { id: 1, text: 'Hallo\n\nTermin passt.', to: ['h@x.at'] });
   const draftId = s.store.get('outlookDrafts', 'M1').draftId;
-  assert.deepEqual(await actions['outlook-send'].run(s.services, { id: 1 }), { sent: true });
+  assert.deepEqual(await actions['outlook-send'].run(s.services, { id: 1 }), { sent: true, simulated: false });
   assert.deepEqual(s.sent.at(-1), ['sendDraft', draftId]);
   assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [['setStatus', 1, 'beantwortet']]);
   assert.equal(s.store.get('replies', 'M1').reply.body, 'Hallo\n\nTermin passt.');
   assert.equal(s.store.get('outlookDrafts', 'M1'), undefined);
   assert.ok(s.scheduler.state.archive.some((p) => p.id === 1 && p.status === 'beantwortet'));
+});
+
+test('Testmails: Ablegen, Verwerfen und Senden sind nur simuliert, an n8n geht nichts, gelernt wird nicht', async () => {
+  const s = outlookSetup();
+  s.scheduler.state.items = [row(2, { mail_id: 'TEST-X-1', antwort_noetig: true })];
+  const out = await actions['outlook-draft'].run(s.services, { id: 2, text: 'Hallo', to: ['support@kunde.at'] });
+  assert.equal(out.simulated, true);
+  assert.deepEqual(s.sent, [], 'kein Aufruf an n8n');
+  assert.deepEqual(await actions['outlook-draft-delete'].run(s.services, { id: 2 }), { deleted: true });
+  await actions['outlook-draft'].run(s.services, { id: 2, text: 'Hallo', to: ['support@kunde.at'] });
+  const sent = await actions['outlook-send'].run(s.services, { id: 2 });
+  assert.deepEqual(sent, { sent: false, simulated: true });
+  assert.deepEqual(s.sent, [], 'auch beim Senden nichts an n8n');
+  assert.equal(s.store.get('replies', 'TEST-X-1'), undefined, 'daraus lernt die App nichts');
+  assert.ok(s.scheduler.state.archive.some((p) => p.mail_id === 'TEST-X-1'), 'die Testmail liegt danach unter Done');
 });

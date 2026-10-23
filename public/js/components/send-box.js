@@ -11,7 +11,7 @@ const parse = (s) => [...new Set(String(s).split(/[,;\s]+/).map((a) => a.trim().
  * getText(): Text im Feld. ownSignature(): Signatur deiner letzten Nachricht ('' = keine bekannt).
  * save({text, to, cc}) -> { webLink, savedAt } (wirft bei Fehler). send() -> true, wenn gesendet. discard() löscht den Entwurf in Outlook.
  */
-export function createSendBox({ reply, getText, ownSignature, save, send, discard, undoSeconds = UNDO_SECONDS }) {
+export function createSendBox({ isTest = false, reply, getText, ownSignature, save, send, discard, undoSeconds = UNDO_SECONDS }) {
   const saved = reply.draft;
   const hasAll = JSON.stringify(reply.all) !== JSON.stringify(reply.only);
   const start = saved ? { to: saved.to, cc: saved.cc } : reply.only;
@@ -60,6 +60,10 @@ export function createSendBox({ reply, getText, ownSignature, save, send, discar
   }
 
   function showSaved(out) {
+    if (out.simulated) {
+      status.replaceChildren(icon('check', 14), 'Test: abgelegt (nur simuliert, in Outlook ist nichts passiert) · ', el('button', { class: 'link', type: 'button', onclick: doDiscard }, 'Entwurf verwerfen'));
+      return;
+    }
     status.replaceChildren(
       icon('check', 14),
       `In Outlook abgelegt${out.savedAt ? ` (${formatShort(out.savedAt)})` : ''} `,
@@ -90,7 +94,7 @@ export function createSendBox({ reply, getText, ownSignature, save, send, discar
   async function doDiscard() {
     try {
       await discard();
-      status.textContent = 'Entwurf in Outlook gelöscht.';
+      status.textContent = isTest ? 'Entwurf verworfen.' : 'Entwurf in Outlook gelöscht.';
     } catch (e) {
       toast(e.message, { error: true });
     }
@@ -137,6 +141,7 @@ export function createSendBox({ reply, getText, ownSignature, save, send, discar
   const node = el(
     'div',
     { class: 'send-box' },
+    isTest && el('p', { class: 'send-test' }, icon('flask', 13), 'Testmodus: Ablegen und Senden sind simuliert, an Outlook geht nichts.'),
     hasAll && el('div', { class: 'send-modes' }, only, all),
     el('div', { class: 'send-row' }, el('label', {}, 'An'), to),
     el('div', { class: 'send-row' }, el('label', {}, 'CC'), cc),

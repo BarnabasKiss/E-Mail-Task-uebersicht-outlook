@@ -3,7 +3,7 @@ import { icon } from '../icons.js';
 import { createSendBox } from './send-box.js';
 
 // Antwortentwurf: editierbar, kopierbar, neu erzeugbar, als Variante (kürzer, förmlicher, freundlicher, Ablehnung) und mit Hinweis.
-// Ablage: Zwischenablage, als Entwurf in Outlook oder gleich senden (send-box.js, nicht bei Testmails und ohne Outlook-Verbindung).
+// Ablage: Zwischenablage, als Entwurf in Outlook oder gleich senden (send-box.js; bei Testmails nur simuliert).
 const VARIANTS = [
   { id: 'kuerzer', label: 'Kürzer', title: 'Den Text im Feld deutlich kürzen', needsText: true },
   { id: 'foermlicher', label: 'Förmlicher', title: 'Den Text im Feld förmlicher formulieren', needsText: true },
@@ -37,8 +37,8 @@ export function createDraftPanel({ draft, error, isTest, reply, ownSignature = (
   const tools = el('div', { class: 'draft-tools' }, ...variantButtons.map((x) => x.btn), hint, previous);
 
   const sendBox =
-    reply && !isTest && onOutlookDraft
-      ? createSendBox({ reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, undoSeconds })
+    reply && onOutlookDraft
+      ? createSendBox({ isTest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, undoSeconds })
       : null;
 
   const node = el(

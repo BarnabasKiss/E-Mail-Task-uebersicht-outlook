@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createThread, ownText } from '../lib/thread.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createThread, ownText, testThread } from '../lib/thread.js';
 
 const OWN = 'barni@firma.at';
 const SIG = 'Barni Kiss\nProjektmanager\nFaircheck GmbH\nTel.: +43 1 234 56 78\nwww.faircheck.at';
@@ -72,4 +75,23 @@ test('Rückfall: ohne Konversation oder bei Fehler bleibt die geöffnete Mail al
   const b = await setup({ thread: () => { throw new Error('n8n weg'); } }).t.page(proposal());
   assert.equal(b.degraded, true);
   assert.equal(b.messages[0].from.address, 'helga@partner.at');
+});
+
+test('Testmail-Verlauf aus verlauf.json: neueste zuerst, seitenweise, mit Signaturerkennung', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'testthread-'));
+  fs.mkdirSync(path.join(dir, 'TEST-V-1'));
+  const all = Array.from({ length: 12 }, (_, i) => ({ id: `T${i}`, from: i % 2 ? me : helga, to: [i % 2 ? helga : me], sent: `2026-10-${String(10 + i).padStart(2, '0')}T08:00:00Z`, body: `Nachricht ${i}\n\nMit freundlichen Grüßen\n${SIG}` }));
+  fs.writeFileSync(path.join(dir, 'TEST-V-1', 'verlauf.json'), JSON.stringify(all));
+  const p = { mail_id: 'TEST-V-1', conversation_id: '', received_at: '2026-10-21T08:00:00Z' };
+  assert.equal(testThread(dir, { mail_id: 'TEST-GIBT-ES-NICHT' }), null);
+  const first = testThread(dir, p, { limit: 10 });
+  assert.deepEqual([first.items.length, first.hasMore, first.items[0].id], [10, true, 'T11']);
+  const t = createThread({ n8n: {}, drafts: { getMail: async () => ({ from: { emailAddress: helga }, toRecipients: [], ccRecipients: [], text: 'x' }), mailText: (m) => m.text }, attachments: { resolveImages: async (_p, text) => ({ text }) }, ownAddress: OWN, testDir: dir, log: () => {} });
+  const page = await t.page(p, { limit: 10 });
+  assert.equal(page.degraded, false);
+  assert.equal(page.messages.length, 10);
+  assert.equal(page.messages[0].own, true);
+  assert.equal(page.messages[0].signature, SIG);
+  const older = await t.page(p, { before: page.nextBefore, limit: 10 });
+  assert.deepEqual([older.messages.length, older.hasMore], [2, false]);
 });

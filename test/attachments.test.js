@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { matchInline, createAttachments } from '../lib/attachments.js';
 
 test('matchInline: contentId, dann Dateiname, dann Reihenfolge', () => {
@@ -60,4 +62,13 @@ test('readAll liest Inline-Bilder nur per OCR, kurzer OCR-Text zählt nicht, Sch
   assert.deepEqual(await make({ inlineOcr: false }).readAll({ mail_id: 'M3' }), []);
   const onlyLogo = { ...n8n, listAttachments: async () => [{ id: 'logo', name: 'logo.png', size: 9000, contentType: 'image/png', isInline: true }] };
   assert.deepEqual(await make({ n8n: onlyLogo }).readAll({ mail_id: 'M4' }), []);
+});
+
+test('Testmail: verlauf.json ist der Testverlauf und taucht nicht als Anhang auf', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'att-test-'));
+  fs.mkdirSync(path.join(dir, 'TEST-V'));
+  fs.writeFileSync(path.join(dir, 'TEST-V', 'verlauf.json'), '[]');
+  fs.writeFileSync(path.join(dir, 'TEST-V', 'Rechnung.txt'), 'x');
+  const att = createAttachments({ n8n: {}, tmpDir: os.tmpdir(), testDir: dir });
+  assert.deepEqual((await att.list({ mail_id: 'TEST-V' })).map((a) => a.name), ['Rechnung.txt']);
 });

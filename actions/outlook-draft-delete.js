@@ -6,9 +6,11 @@ export default {
     if (!p) throw new Error('Vorschlag nicht gefunden (evtl. schon bearbeitet)');
     const saved = store.get('outlookDrafts', p.mail_id);
     if (!saved?.draftId) return { deleted: false };
-    await n8n.deleteDraft(saved.draftId).catch((e) => {
-      if (!/outlook|kein Entwurf/i.test(e.message)) throw e; // schon weg (in Outlook gelöscht oder gesendet)
-    });
+    if (!String(p.mail_id).startsWith('TEST-')) {
+      await n8n.deleteDraft(saved.draftId).catch((e) => {
+        if (!/outlook|kein Entwurf/i.test(e.message)) throw e; // schon weg (in Outlook gelöscht oder gesendet)
+      });
+    }
     store.del('outlookDrafts', p.mail_id);
     return { deleted: true };
   },
