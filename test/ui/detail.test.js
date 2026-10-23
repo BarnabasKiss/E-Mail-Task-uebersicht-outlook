@@ -265,12 +265,12 @@ test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt si
   assert.match(b2.querySelector('.thread .hint').textContent, /nur diese Nachricht/);
 });
 
-test('Aufbau in einer Spalte: Person, Anhänge, Aufgabe, Zusammenfassung, Antwortentwurf, Verlauf', opts, async () => {
+test('Aufbau in einer Spalte: Person, Anhänge, Aufgabe, Zusammenfassung, Verlauf, Antwortentwurf', opts, async () => {
   const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo', previous: null } });
   const article = box.querySelector('article.detail');
   assert.equal(box.querySelector('.d-main, .d-left, .d-right'), null, 'keine zweite Spalte');
   const labels = [...article.children].map((c) => c.getAttribute('aria-label')).filter(Boolean);
-  assert.deepEqual(labels.filter((l) => ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Antwortentwurf', 'Verlauf'].includes(l)), ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Antwortentwurf', 'Verlauf']);
+  assert.deepEqual(labels.filter((l) => ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Verlauf', 'Antwortentwurf'].includes(l)), ['Absender und Empfänger', 'Aufgabe', 'Zusammenfassung', 'Verlauf', 'Antwortentwurf']);
 });
 
 test('Anonymisierung mit dem Verlauf: das Auge ersetzt den Verlauf durch die maskierte Mail und wieder zurück', opts, async () => {
@@ -303,17 +303,18 @@ const draftData = (r) => ({ proposal: proposal({ antwort_noetig: true }), draft:
 test('Senden: Empfänger vorbelegt, "Allen antworten" tauscht sie, In Outlook ablegen schickt Text, An und CC', opts, async () => {
   const calls = [];
   const { box } = await render(draftData(reply()), { extra: { outlookDraft: async (p) => (calls.push(p), { webLink: 'https://outlook/d', savedAt: '2026-10-23T09:00:00Z' }), outlookDraftDelete: async () => calls.push('delete'), outlookSend: async () => true } });
-  const [to, cc] = box.querySelectorAll('.send-addr');
-  assert.equal(to.value, 'helga@partner.at');
-  assert.equal(cc.value, '');
+  const chips = (label) => [...box.querySelectorAll(`.rf[data-label="${label}"] .rf-chip`)].map((c) => c.getAttribute('title'));
+  assert.deepEqual(chips('An'), ['helga@partner.at']);
+  assert.deepEqual(chips('CC'), []);
+  assert.ok(box.querySelector('.rf[data-label="BCC"]').closest('.send-row').hidden, 'BCC zunächst hinter "+ BCC"');
   const radios = box.querySelectorAll('.send-mode input');
   assert.equal(radios.length, 2);
   radios[1].dispatchEvent(new w.Event('change'));
-  assert.equal(to.value, 'helga@partner.at, paul@partner.at');
-  assert.equal(cc.value, 'c@x.at');
+  assert.deepEqual(chips('An'), ['helga@partner.at', 'paul@partner.at']);
+  assert.deepEqual(chips('CC'), ['c@x.at']);
   [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Outlook ablegen')).click();
   await tick(30);
-  assert.deepEqual(calls[0], { text: 'Hallo Helga,\n\nTermin passt.', to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] });
+  assert.deepEqual(calls[0], { text: 'Hallo Helga,\n\nTermin passt.', to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'], bcc: [] });
   assert.match(box.querySelector('.send-status').textContent, /In Outlook abgelegt/);
   assert.equal(box.querySelector('.send-status a').getAttribute('href'), 'https://outlook/d');
   [...box.querySelectorAll('.send-status .link')].find((b) => b.textContent.includes('löschen')).click();
@@ -383,4 +384,98 @@ test('Verlauf: Adressen ohne Namen stehen im Popover nur einmal; "Ältere laden"
   const rows = [...box.querySelectorAll('.b-pop .pop-row')].map((r) => r.textContent);
   assert.ok(rows.includes('service@gaminside.com'), 'nur die Adresse, ohne Wiederholung');
   assert.ok(box.querySelector('.thread-older').hidden, 'nichts mehr zu laden: Knopf versteckt');
+});
+
+// --- Empfängerfelder, BCC, Antwort bei jeder Mail, Vergrößern
+const typeInto = async (input, text) => {
+  input.focus();
+  input.value = text;
+  input.dispatchEvent(new w.Event('input', { bubbles: true }));
+  await tick(160);
+};
+const key = (input, k) => input.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+
+test('Empfängerfeld: Vorschläge beim Tippen, Auswahl per Pfeil und Enter, getippte Adresse mit Enter, Chips entfernen', opts, async () => {
+  const asked = [];
+  const suggest = async (q, exclude) => (asked.push([q, exclude]), q.startsWith('an') ? [{ name: 'Anna Berger', address: 'anna@kunde.at', company: 'Kunde GmbH' }, { name: 'Anton Huber', address: 'anton@x.at' }] : []);
+  const extra = { suggest, outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
+  const { box } = await render(draftData(reply()), { extra });
+  const to = box.querySelector('.rf[data-label="An"]');
+  const input = to.querySelector('.rf-input');
+  await typeInto(input, 'an');
+  assert.deepEqual(asked.at(-1), ['an', ['helga@partner.at']], 'bereits eingetragene Adressen werden nicht noch einmal vorgeschlagen');
+  assert.deepEqual([...to.querySelectorAll('.rf-item-name')].map((x) => x.textContent), ['Anna Berger', 'Anton Huber']);
+  key(input, 'ArrowDown');
+  key(input, 'Enter');
+  assert.deepEqual([...to.querySelectorAll('.rf-chip')].map((c) => c.textContent.trim()), ['helga@partner.at', 'Anton Huber'], 'Chip zeigt den Namen, Tooltip die Adresse');
+  assert.equal(to.querySelector('.rf-chip:last-child').getAttribute('title'), 'anton@x.at');
+  await typeInto(input, 'neu@firma.at');
+  key(input, 'Enter');
+  assert.equal(to.querySelectorAll('.rf-chip').length, 3);
+  to.querySelector('.rf-chip .rf-x').click();
+  assert.deepEqual([...to.querySelectorAll('.rf-chip')].map((c) => c.getAttribute('title')), ['anton@x.at', 'neu@firma.at']);
+  key(input, 'Backspace');
+  assert.equal(to.querySelectorAll('.rf-chip').length, 1, 'Rücktaste im leeren Feld entfernt die letzte Adresse');
+});
+
+test('Empfängerfeld: Einfügen mehrerer Adressen, Komma übernimmt, Unfertiges sperrt das Senden', opts, async () => {
+  const { box } = await render(draftData(reply()), { extra: { undoSeconds: 1, outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  const cc = box.querySelector('.rf[data-label="CC"]');
+  const input = cc.querySelector('.rf-input');
+  const ev = new w.Event('paste', { bubbles: true, cancelable: true });
+  ev.clipboardData = { getData: () => 'Max Huber <max@y.at>, paul@z.at; kaputt' };
+  input.dispatchEvent(ev);
+  assert.deepEqual([...cc.querySelectorAll('.rf-chip')].map((c) => c.getAttribute('title')), ['max@y.at', 'paul@z.at']);
+  await typeInto(input, 'anna@x.at,');
+  assert.equal(cc.querySelectorAll('.rf-chip').length, 3, 'das Komma übernimmt die Adresse');
+  input.value = 'halbe';
+  input.dispatchEvent(new w.Event('input', { bubbles: true }));
+  const sendBtn = [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden');
+  assert.ok(sendBtn.disabled);
+  assert.match(sendBtn.title, /unvollständige Adresse: „halbe“/);
+});
+
+test('BCC: erst hinter "+ BCC", wird mit An und CC an das Ablegen übergeben', opts, async () => {
+  const calls = [];
+  const { box } = await render(draftData(reply()), { extra: { outlookDraft: async (p) => (calls.push(p), {}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  const row = box.querySelector('.rf[data-label="BCC"]').closest('.send-row');
+  assert.ok(row.hidden);
+  box.querySelector('.send-bcc').click();
+  assert.ok(!row.hidden && box.querySelector('.send-bcc').hidden);
+  await typeInto(row.querySelector('.rf-input'), 'chef@firma.at');
+  key(row.querySelector('.rf-input'), 'Enter');
+  [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.includes('Outlook ablegen')).click();
+  await tick(30);
+  assert.deepEqual(calls[0].bcc, ['chef@firma.at']);
+  assert.deepEqual(calls[0].to, ['helga@partner.at']);
+});
+
+test('Antwort gibt es bei jeder offenen Mail, auch wenn laut Bewertung keine nötig ist', opts, async () => {
+  const { box } = await render({ proposal: proposal({ antwort_noetig: false }), draft: null, reply: reply() }, { extra: { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  const panel = box.querySelector('.draft');
+  assert.ok(panel && panel.querySelector('.send-box'));
+  assert.match(panel.querySelector('.draft-status').textContent, /keine Antwort nötig/);
+  box.querySelector('.draft-text').value = 'Kurze Antwort.';
+  box.querySelector('.draft-text').dispatchEvent(new w.Event('input'));
+  const sendBtn = [...box.querySelectorAll('.send-actions .btn')].find((b) => b.textContent.trim() === 'Senden');
+  assert.ok(!sendBtn.disabled, 'selbst geschriebener Text lässt sich senden');
+  const done = (await render({ proposal: proposal({ archiviert: true, status: 'done' }), draft: null })).box;
+  assert.equal(done.querySelector('.draft'), null, 'in Done keine Antwort');
+});
+
+test('Verlauf: Knopf zum Vergrößern und wieder Verkleinern, nur bei aufgeklapptem Verlauf', opts, async () => {
+  const { box } = await render({}, { extra: { thread: async () => page1 } });
+  const size = box.querySelector('.v-size');
+  const verlauf = box.querySelector('.card.verlauf');
+  assert.ok(size.hidden, 'zugeklappt kein Knopf');
+  box.querySelector('.v-toggle').click();
+  assert.ok(!size.hidden);
+  assert.ok(!verlauf.classList.contains('big'));
+  assert.match(size.title, /vergrößern/);
+  size.click();
+  assert.ok(verlauf.classList.contains('big'), 'vergrößert: alles ohne Scrollen im Rahmen');
+  assert.equal(size.getAttribute('aria-pressed'), 'true');
+  assert.match(size.title, /verkleinern/);
+  size.click();
+  assert.ok(!verlauf.classList.contains('big'), 'wieder so klein wie vorher');
 });

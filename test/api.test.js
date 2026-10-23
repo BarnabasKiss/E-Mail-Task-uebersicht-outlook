@@ -13,6 +13,7 @@ import { createScheduler } from '../lib/scheduler.js';
 import { createAttachments } from '../lib/attachments.js';
 import { createDrafts } from '../lib/drafts.js';
 import { createContacts } from '../lib/contacts.js';
+import { createAddressBook } from '../lib/address-book.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const addr = (name, address) => ({ emailAddress: { name, address } });
@@ -73,10 +74,11 @@ async function start({ rows = { neu: [row(1), row(2, { dringlichkeit: 'jetzt' })
   let urgency = { ignorieren: [], jetzt: [], heute: [] };
   const rules = { urgencyRules: () => urgency, setUrgencyRule: (...a) => ruleCalls.push(a), file: path.join(dir, 'Regeln.md'), read: () => '' };
   const contacts = createContacts({ store });
+  const addressBook = createAddressBook({ file: path.join(dir, 'book.json'), ownAddresses: [OWN], log: () => {} });
   const vault = { headings: () => ['Kunden', 'Intern'], addTask: () => ({}) };
-  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex, contacts }));
+  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex, contacts, addressBook }));
   const get = (p, init) => fetch(`http://127.0.0.1:${port}${p}`, init);
-  return { get, calls, ruleCalls, setUrgency: (u) => (urgency = u), contacts, port, store, close: () => server.close() };
+  return { addressBook, get, calls, ruleCalls, setUrgency: (u) => (urgency = u), contacts, port, store, close: () => server.close() };
 }
 
 test('Liste: nach Dringlichkeit sortiert, mit Rolle, Anhängen und Done-Liste', async () => {
@@ -282,6 +284,23 @@ test('Verlauf und Antwortvorschläge: Schnittstelle liefert den Verlauf, die Det
     assert.deepEqual(detail.reply.only, { to: ['helga@partner.at'], cc: [] });
     assert.deepEqual(detail.reply.all, { to: ['helga@partner.at'], cc: ['paul@partner.at'] });
     assert.equal(detail.reply.draft, null);
+  } finally {
+    s.close();
+  }
+});
+
+test('Adressbuch: Vorschläge und Liste über die Schnittstelle, Anlegen über die Aktion book', async () => {
+  const s = await start();
+  try {
+    const post = (body) => s.get('/api/actions/book', { method: 'POST', headers: { 'x-mail-app': '1', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await post({ op: 'add', name: 'Anna Berger', address: 'anna@kunde.at', company: 'Kunde GmbH' })).status, 200);
+    s.addressBook.remember([{ name: 'Anton Huber', address: 'anton@x.at' }]);
+    const sug = await (await s.get('/api/address-book/suggest?q=an&exclude=anton@x.at')).json();
+    assert.deepEqual(sug.items.map((p) => p.address), ['anna@kunde.at']);
+    const list = await (await s.get('/api/address-book?limit=1')).json();
+    assert.deepEqual([list.total, list.items.length, list.stats.total, list.stats.manuell], [2, 1, 2, 1]);
+    assert.equal((await post({ op: 'add', address: 'kaputt' })).status, 500);
+    assert.equal((await post({ op: 'remove', address: 'anna@kunde.at' })).status, 200);
   } finally {
     s.close();
   }

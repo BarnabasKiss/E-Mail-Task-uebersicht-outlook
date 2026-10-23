@@ -18,6 +18,8 @@ const db = { items: [mk(1, { dringlichkeit: 'jetzt', rolle: 'direkt' }), mk(2, {
 const requests = [];
 const contactNotes = [{ id: 'n1', text: 'Antwortet knapp.', source: 'gelernt', reviewed: false, scope: 'person' }];
 let contactRules = [];
+let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
+let bookCall = null;
 let learnStatus = { running: false, phase: 'idle', read: 0, usable: 0, people: 0, error: null, result: null };
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -42,6 +44,7 @@ globalThis.fetch = async (url, init = {}) => {
     return json({ proposal: it, mail: { source: 'outlook', subject: it.betreff, from: { name: it.absender, address: it.absender_mail }, to: [], cc: [], receivedDateTime: it.received_at, text: `Text von ${it.betreff}` }, mailError: null, draft: null, headings: [] });
   }
   if (p === '/api/history-learn') return json(learnStatus);
+  if (p === '/api/address-book') return json({ total: book.length, items: book.filter((b) => !u.searchParams.get('q') || b.name.toLowerCase().includes(u.searchParams.get('q'))), stats: { total: book.length, mail: 1, manuell: book.length - 1 } });
   m = /^\/api\/contacts\/(.+)$/.exec(p);
   if (m) {
     const address = decodeURIComponent(m[1]);
@@ -55,6 +58,12 @@ globalThis.fetch = async (url, init = {}) => {
   m = /^\/api\/actions\/(\w[\w-]*)$/.exec(p);
   if (m && method === 'POST') {
     const { id, ...rest } = JSON.parse(init.body);
+    if (m[1] === 'book') {
+      bookCall = { id, ...rest };
+      if (rest.op === 'add') book.push({ name: rest.name, address: rest.address, company: rest.company || '', sources: ['manuell'], count: 0, sentCount: 0, last: null });
+      if (rest.op === 'remove') book = book.filter((b) => b.address !== rest.address);
+      return json(rest.op === 'import-outlook' ? { added: 0, updated: 0, total: 0, empty: true } : { ok: true });
+    }
     if (m[1] === 'bulk') {
       for (const bid of rest.ids) {
         const it = byId(bid);
@@ -406,4 +415,31 @@ test('Egal ist eine zuklappbare Gruppe unter Offen: zunächst zu, zählt nicht a
   await tick(30);
   assert.equal(rowTitles().length, before);
   assert.deepEqual(JSON.parse(localStorage.getItem('mail-app.collapsed')), ['egal']);
+});
+
+test('Kontakte: Ansicht mit Adressbuch, Anlegen, Löschen und Outlook-Import (leer) mit verständlicher Meldung', opts, async () => {
+  $('contacts-link').click();
+  await tick(60);
+  assert.equal(document.querySelector('#detail .contacts h2').textContent, 'Kontakte');
+  assert.match(document.querySelector('#detail .contacts .d-badges').textContent, /1 im Adressbuch/);
+  assert.equal(document.querySelectorAll('#detail .ct-row').length, 1);
+  const [name, addr] = document.querySelectorAll('#detail .ct-add input');
+  name.value = 'Paul Weber';
+  addr.value = 'paul@z.at';
+  document.querySelector('#detail .ct-add .btn').click();
+  await tick(80);
+  assert.deepEqual(bookCall, { id: undefined, op: 'add', name: 'Paul Weber', address: 'paul@z.at', company: '' });
+  assert.equal(document.querySelectorAll('#detail .ct-row').length, 2);
+  assert.match(document.querySelector('#detail .ct-note').textContent, /Kontakt hinzugefügt/);
+  [...document.querySelectorAll('#detail .ct-tools .btn')][1].click();
+  await tick(80);
+  assert.equal(bookCall.op, 'import-outlook');
+  assert.match(document.querySelector('#detail .ct-note').textContent, /keine Kontakte/);
+  document.querySelectorAll('#detail .ct-row .icon-btn.danger')[1].click();
+  await tick(80);
+  assert.equal(bookCall.op, 'remove');
+  assert.equal(document.querySelectorAll('#detail .ct-row').length, 1);
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
+  assert.ok(!document.querySelector('#detail .contacts'));
 });

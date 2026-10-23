@@ -171,7 +171,7 @@ test('Outlook-Entwurf: legt ihn an (sendet nichts), prüft Empfänger, ersetzt e
   await s.scheduler.refresh();
   const out = await actions['outlook-draft'].run(s.services, { id: 1, text: ' Hallo\n\nja. ', to: ['H@X.at', 'h@x.at'], cc: ['p@x.at', 'h@x.at'] });
   assert.equal(out.webLink, 'https://outlook/d');
-  assert.deepEqual(s.sent[0], ['saveDraft', { id: 'M1', text: 'Hallo\n\nja.', to: ['h@x.at'], cc: ['p@x.at'] }]);
+  assert.deepEqual(s.sent[0], ['saveDraft', { id: 'M1', text: 'Hallo\n\nja.', to: ['h@x.at'], cc: ['p@x.at'], bcc: [] }]);
   assert.equal(s.store.get('outlookDrafts', 'M1').draftId, out.draftId);
   await actions['outlook-draft'].run(s.services, { id: 1, text: 'neu', to: ['h@x.at'] });
   assert.deepEqual(s.sent.map((c) => c[0]), ['saveDraft', 'deleteDraft', 'saveDraft'], 'der alte Entwurf wird zuerst gelöscht');
@@ -221,4 +221,45 @@ test('Testmails: Ablegen, Verwerfen und Senden sind nur simuliert, an n8n geht n
   assert.deepEqual(s.sent, [], 'auch beim Senden nichts an n8n');
   assert.equal(s.store.get('replies', 'TEST-X-1'), undefined, 'daraus lernt die App nichts');
   assert.ok(s.scheduler.state.archive.some((p) => p.mail_id === 'TEST-X-1'), 'die Testmail liegt danach unter Done');
+});
+
+test('Outlook-Entwurf mit BCC: jede Adresse nur einmal (An vor CC vor BCC), Benutzte kommen ins Adressbuch', async () => {
+  const s = outlookSetup();
+  await s.scheduler.refresh();
+  const touched = [];
+  s.services.addressBook = { touch: (a) => touched.push(...a) };
+  await actions['outlook-draft'].run(s.services, { id: 1, text: 'Hallo', to: ['h@x.at'], cc: ['p@x.at', 'h@x.at'], bcc: ['b@x.at', 'p@x.at', 'H@x.at'] });
+  assert.deepEqual(s.sent[0][1], { id: 'M1', text: 'Hallo', to: ['h@x.at'], cc: ['p@x.at'], bcc: ['b@x.at'] });
+  assert.deepEqual(touched, ['h@x.at', 'p@x.at', 'b@x.at']);
+  await assert.rejects(actions['outlook-draft'].run(s.services, { id: 1, text: 'x', to: ['h@x.at'], bcc: ['kaputt'] }), /Ungültige Adresse bei BCC/);
+});
+
+test('Adressbuch-Aktion: anlegen, ändern, löschen, Liste und Outlook-Import (auch leer)', async () => {
+  const { createAddressBook } = await import('../lib/address-book.js');
+  const book = createAddressBook({ file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'book-act-')), 'b.json'), ownAddresses: ['ich@x.at'], log: () => {} });
+  const s = outlookSetup();
+  s.services.addressBook = book;
+  s.n8n.listContacts = async () => ({ items: [] });
+  const run = (op, p = {}) => actions.book.run(s.services, { op, ...p });
+  assert.equal((await run('add', { name: 'Anna', address: 'a@x.at' })).address, 'a@x.at');
+  assert.equal((await run('edit', { address: 'a@x.at', company: 'Kunde' })).company, 'Kunde');
+  assert.deepEqual(await run('import-text', { text: 'Max;m@y.at' }), { added: 1, updated: 0, skipped: 0 });
+  assert.equal((await run('import-outlook')).empty, true);
+  s.n8n.listContacts = async () => ({ items: [{ name: 'Paul', company: '', addresses: [{ name: '', address: 'p@z.at' }] }] });
+  assert.deepEqual(await run('import-outlook'), { added: 1, updated: 0, total: 1, empty: false });
+  assert.deepEqual(await run('remove', { address: 'a@x.at' }), { removed: true });
+  await assert.rejects(run('zaubern'), /Unbekannte Änderung/);
+});
+
+test('Adressbuch aus gesendeten Mails: beide Quellen, jede Mail einmal, Empfänger An und CC', async () => {
+  const { createAddressBook } = await import('../lib/address-book.js');
+  const book = createAddressBook({ file: path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'book-sent-')), 'b.json'), ownAddresses: ['ich@x.at'], log: () => {} });
+  const s = outlookSetup();
+  s.services.addressBook = book;
+  const pages = { sent: [{ id: 'S1', sentDateTime: '2026-10-02T08:00:00Z', to: [{ name: 'Anna', address: 'a@x.at' }], cc: [{ name: '', address: 'c@x.at' }] }], all: [{ id: 'S1', sentDateTime: '2026-10-02T08:00:00Z', to: [{ name: 'Anna', address: 'a@x.at' }], cc: [] }, { id: 'S2', sentDateTime: '2026-09-01T08:00:00Z', to: [{ name: 'Max', address: 'm@y.at' }, { name: 'Ich', address: 'ich@x.at' }], cc: [] }] };
+  s.n8n.listSent = async ({ scope, before }) => (before ? [] : pages[scope]);
+  const r = await actions.book.run(s.services, { op: 'import-sent' });
+  assert.deepEqual(r, { mails: 2, people: 3 });
+  assert.deepEqual(book.list().items.map((p) => p.address), ['a@x.at', 'c@x.at', 'm@y.at']);
+  assert.equal(book.search('anna')[0].sentCount, 1);
 });

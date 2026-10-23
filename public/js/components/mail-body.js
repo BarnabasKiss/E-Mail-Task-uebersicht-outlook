@@ -15,7 +15,7 @@ import { createThread } from './thread.js';
  *   node = die Ansicht, eye = Umschalter (null, wenn nichts zu anonymisieren ist), show() = beim Einblenden aufrufen
  */
 export function createMailBody({ proposalId, mail, mailError, handlers, ownAddress = '' }) {
-  const thread = handlers.thread && ['outlook', 'test'].includes(mail.source) ? createThread({ proposalId, ownAddress, loadPage: handlers.thread }) : null;
+  const thread = handlers.thread && ['outlook', 'test'].includes(mail.source) ? createThread({ proposalId, ownAddress, loadPage: handlers.thread, scrollEl: () => node }) : null;
   let ai = null; // Antwort von /ai-view, sobald da
   let showMasked = false;
   let aiRequested = false;
@@ -128,7 +128,7 @@ export function createMailBody({ proposalId, mail, mailError, handlers, ownAddre
     node,
     eye,
     show() {
-      thread?.load();
+      thread?.load().then(() => thread.toEnd());
       loadAi();
       requestAnimationFrame(fitMailText);
     },

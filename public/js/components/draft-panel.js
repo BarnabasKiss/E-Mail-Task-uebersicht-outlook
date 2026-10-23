@@ -12,7 +12,7 @@ const VARIANTS = [
 ];
 const VARIANT_LABEL = Object.fromEntries(VARIANTS.map((v) => [v.id, v.label.toLowerCase()]));
 
-export function createDraftPanel({ draft, error, isTest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, undoSeconds }) {
+export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, undoSeconds }) {
   const area = el('textarea', { class: 'draft-text', rows: 7, 'aria-label': 'Antwortentwurf', placeholder: 'Der Entwurf erscheint hier …' });
   const status = el('span', { class: 'draft-status' });
   const copy = el('button', { class: 'btn', type: 'button', onclick: copyText }, icon('copy', 15), el('span', {}, 'Kopieren'));
@@ -38,7 +38,7 @@ export function createDraftPanel({ draft, error, isTest, reply, ownSignature = (
 
   const sendBox =
     reply && onOutlookDraft
-      ? createSendBox({ isTest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, undoSeconds })
+      ? createSendBox({ isTest, suggest, reply, getText: () => area.value, ownSignature, save: onOutlookDraft, send: onSend, discard: onOutlookDraftDelete, undoSeconds })
       : null;
 
   const node = el(
@@ -114,6 +114,7 @@ export function createDraftPanel({ draft, error, isTest, reply, ownSignature = (
       status.textContent = 'Claude schreibt … (10 bis 30 Sekunden)';
     } else if (d) status.textContent = `${d.variant ? `Variante: ${VARIANT_LABEL[d.variant] || d.variant}. ` : ''}Bereit. Änderungen hier werden nicht gespeichert.`;
     else if (isTest) status.textContent = 'Testnachricht: Entwürfe nur per Klick auf „Jetzt erzeugen“.';
+    else if (!needsReply && !e) status.textContent = 'Laut Bewertung ist keine Antwort nötig. Du kannst trotzdem eine schreiben oder erzeugen lassen.';
     else if (!e) {
       status.classList.add('busy');
       status.textContent = 'Wird im Hintergrund erstellt …';

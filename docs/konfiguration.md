@@ -58,6 +58,7 @@ der gilt, wenn der Schlüssel fehlt.
 | `rolesSec` | Direkt/CC/Shared bestimmen (6 Mails je Lauf) | 30 |
 | `attInfoSec` | Anhangsnamen für den Anhang-Tag holen (6 Mails je Lauf) | 30 |
 | `docIndexSec` | Suchindex nachführen (2 Mails je Lauf) | 45 |
+| `addressBookSec` | Absender und Empfänger der Mails ins Adressbuch übernehmen | 120 |
 
 Die Oberfläche selbst lädt die Liste alle 30 Sekunden neu (siehe `public/js/main.js`).
 

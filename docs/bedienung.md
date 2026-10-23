@@ -44,10 +44,11 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
     mit Rückfrage. In Outlook bleibt die Mail unverändert.
 - **Absender und Empfänger** mit Rolle, **Anhänge** als Chips (PDF und Bilder öffnen im Browser, Office und Text als Textvorschau, alles andere
   als Download; ✦ = Claude liest den Text daraus mit).
-- **Aufbau von oben nach unten (eine Spalte):** Absender und Empfänger, Anhänge, **Aufgabe** (immer eine Zeile), **Zusammenfassung** (immer sichtbar), **Antwortentwurf**
-  und zuletzt der **Verlauf** als eigene Sektion, die du auf- und zuklappen kannst (zunächst zu; ein aufgeklappter Verlauf schiebt den Entwurf nicht weg).
+- **Aufbau von oben nach unten (eine Spalte):** Absender und Empfänger, Anhänge, **Aufgabe** (immer eine Zeile), **Zusammenfassung** (immer sichtbar), der **Verlauf** als eigene Sektion,
+  die du auf- und zuklappen kannst (zunächst zu), und darunter die **Antwort** (Entwurf, Empfänger, Ablegen, Senden).
 - **Zusammenfassung** ist ein Absatz aus Zusammenfassung und Begründung.
-- **Verlauf:** die Konversation als Nachrichten (siehe unten). Das **Auge** in der Kopfzeile der Sektion (nur bei aufgeklapptem Verlauf) schaltet zwischen *Original* und
+- **Verlauf:** die Konversation als Nachrichten (siehe unten). Aufgeklappt hat er einen festen, scrollbaren Rahmen mit der neuesten Nachricht unten. Der Knopf **⤢ rechts oben** macht den Rahmen
+  so groß, dass du alles ohne Scrollen siehst; ein zweiter Klick macht ihn wieder so klein wie vorher. Das **Auge** in der Kopfzeile der Sektion (nur bei aufgeklapptem Verlauf) schaltet zwischen *Original* und
   *Anonymisiert* um: anonymisiert ersetzt es den Verlauf durch die geöffnete Mail so, wie Claude sie bekäme, mit markierten Platzhaltern, der Zuordnung als Dropdown, dem Text
   aus Bildern und Anhängen und dem Ergebnis der Prüfung (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
 - **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**. Sie steht über der Zusammenfassung.
@@ -70,15 +71,27 @@ Die Sektion **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, 
 - Kann der Verlauf nicht geladen werden (oder bei Testmails), zeigt die App nur die geöffnete Mail und sagt es.
 
 ## Antwort aus der App: Entwurf ablegen und senden
-Unter dem Antwortentwurf (nicht bei Testmails):
-- **An / CC** sind vorbelegt: „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen). Beide Felder lassen sich ändern.
+Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewertung keine nötig ist (dann ohne automatischen Entwurf, du schreibst selbst oder klickst „Jetzt erzeugen“). In Done gibt es sie nicht.
+- **An, CC und BCC** sind Felder mit Adressen als Chips. Vorbelegt ist „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen).
+  BCC steht hinter „+ BCC“. Beim Tippen schlägt das [Adressbuch](#kontakte-das-adressbuch) Personen vor (Pfeiltasten und Enter, oder Klick); Enter, Komma, Semikolon oder Leerzeichen übernehmen eine getippte Adresse,
+  mehrere eingefügte Adressen („Name <a@x.at>, b@y.at“) werden sofort zerlegt, die Rücktaste im leeren Feld entfernt die letzte. Eine Adresse steht nur in einem Feld (An vor CC vor BCC).
 - **Meine Signatur anhängen:** erscheint, sobald im Verlauf eine eigene Signatur erkannt wurde, und hängt sie als Text an (Formatierung und Logo gehen dabei verloren).
 - **In Outlook ablegen** legt die Antwort als Entwurf in Outlook an (mit dem zitierten Verlauf wie bei einer normalen Antwort). Gesendet wird nichts. Danach stehen dort
   „In Outlook öffnen“ und „Entwurf dort löschen“; legst du erneut ab, ersetzt der neue Entwurf den alten.
 - **Senden** legt die Antwort zuerst als Entwurf ab und sendet nach **10 Sekunden**; bis dahin steht ein **Rückgängig** da (der Entwurf bleibt dann in Outlook). Danach gilt die Mail als beantwortet
   und liegt in Done, und die App lernt aus dem gesendeten Text wie sonst auch.
-- **Gesperrt** sind „Senden“ bei offenem `[BITTE ERGÄNZEN …]`, ohne Empfänger und bei leerem Text. Anhänge lassen sich über die App nicht mitschicken.
+- **Gesperrt** sind „Senden“ bei offenem `[BITTE ERGÄNZEN …]`, ohne Empfänger, bei leerem Text und bei einer halben Eingabe in einem Empfängerfeld (der Tooltip nennt den Grund). Anhänge lassen sich über die App nicht mitschicken.
 - Dafür braucht die n8n-Verbindung zu Outlook die Rechte *Mail.ReadWrite* und *Mail.Send* (siehe [n8n/README.md](../n8n/README.md)).
+
+## Kontakte: das Adressbuch
+Der Link **Kontakte** oben rechts öffnet das Adressbuch der App. Es liefert die Vorschläge bei An, CC und BCC und liegt nur auf diesem Rechner (`address-book.json` im Datenordner).
+- **Es füllt sich von selbst** aus deinen Mails: Absender, An und CC der Mails in der Übersicht (sobald der Suchindex sie gelesen hat), alle Teilnehmer der Verläufe, die du öffnest, und die Empfänger deiner gesendeten Mails.
+  Alles Eigene fehlt. Wem du geschrieben hast, steht in den Vorschlägen weiter oben, ebenso Neueres und Häufigeres; automatische Absender (noreply …) kommen ans Ende.
+- **Aus gesendeten Mails übernehmen** liest die Empfänger aller erreichbaren gesendeten Mails auf einmal (ohne Claude). **Aus Outlook übernehmen** holt deine persönlichen Outlook-Kontakte
+  (liegen dort keine, meldet die App das; das Firmenverzeichnis ist nicht abrufbar).
+- **Von Hand:** Name, Adresse und Firma eintragen und „Hinzufügen“, oder **Liste einfügen** (eine Zeile je Kontakt, z. B. aus Excel: „Name;adresse“, „Name <adresse>“ oder nur Adressen).
+- Name und Firma lassen sich in der Liste direkt ändern, der Papierkorb löscht einen Kontakt; ein Klick auf die Adresse öffnet das Absender-Profil. Die Suche filtert nach Name, Firma und Adresse, der Filter nach Herkunft
+  (Mails, Angeschrieben, Outlook, Von Hand).
 
 ## Tastatur
 `/` Suche · `j`/`k` oder Pfeile nächste/vorherige Mail · `e` in Done ablegen (in Done: zurückholen) · `Entf` löschen · `Esc` hebt eine Markierung auf.

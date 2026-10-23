@@ -48,6 +48,10 @@ eine Telefon- oder lange Zahl, wird **nichts an Claude gesendet**: Der Entwurf e
   höchstens 30 Mails für allgemeine Regeln und 5 je Person für höchstens 12 Personen). Besteht eine Mail die Prüfung nicht, bleibt sie draußen.
   Alles Abgeleitete ist als „prüfen“ markiert beziehungsweise steht in einem eigenen Abschnitt der Regeldatei.
 
+## Adressbuch
+Das Adressbuch (Vorschläge bei An, CC, BCC) liegt nur lokal in `address-book.json` im Datenordner, mit echten Namen und Adressen. Es geht nicht an Claude und nicht ins Netz. Aus Outlook kommen nur
+deine persönlichen Kontakte, und nur auf deinen Klick („Aus Outlook übernehmen“). Die Datei nicht in eine Cloud legen.
+
 ## Modul „Bewertung mit Anhängen“
 Die Bewertung in n8n kennt nur den Mailtext. Dieses abschaltbare Modul (`lib/attachment-review.js`) bewertet Mails mit lesbaren Anhängen zusätzlich lokal
 über `claude -p` neu und überlagert die n8n-Bewertung. In n8n wird nichts geändert.

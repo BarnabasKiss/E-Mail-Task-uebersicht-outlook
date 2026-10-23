@@ -13,6 +13,18 @@ function brief(list, ownAddress) {
 }
 
 // Vollständige Liste beim Darüberfahren: je Zeile Name und Adresse, getrennt nach An und CC
+// Das Popover liegt fest (position: fixed) unter dem Namen, damit es nicht vom scrollenden Rahmen des Verlaufs abgeschnitten wird
+function placePopover(host, pop, own) {
+  requestAnimationFrame(() => {
+    const r = host.getBoundingClientRect();
+    const w = pop.offsetWidth;
+    const left = own ? Math.max(8, r.right - w) : Math.min(r.left, window.innerWidth - w - 8);
+    const top = r.bottom + 6 + pop.offsetHeight > window.innerHeight - 8 && r.top - 6 - pop.offsetHeight > 8 ? r.top - 6 - pop.offsetHeight : r.bottom + 6;
+    pop.style.left = `${Math.max(8, left)}px`;
+    pop.style.top = `${top}px`;
+  });
+}
+
 function popover(m, ownAddress) {
   const group = (title, list) =>
     list.length
@@ -30,7 +42,7 @@ function popover(m, ownAddress) {
 function bubble(m, { proposalId, ownAddress }) {
   const who = m.own ? 'Du' : m.from.name || m.from.address;
   const body = m.current && /⟦bild:/.test(m.text) ? textWithImages(proposalId, m.text) : [m.text || '(kein Text)'];
-  return el(
+  const row = el(
     'article',
     { class: `bubble-row${m.own ? ' own' : ''}`, 'data-id': m.id },
     el(
@@ -54,13 +66,17 @@ function bubble(m, { proposalId, ownAddress }) {
       m.signature && el('details', { class: 'b-sig' }, el('summary', {}, 'Signatur'), el('pre', {}, m.signature)),
     ),
   );
+  const host = row.querySelector('.b-people');
+  const pop = row.querySelector('.b-pop');
+  for (const ev of ['mouseenter', 'focus']) host.addEventListener(ev, () => placePopover(host, pop, m.own));
+  return row;
 }
 
 /**
  * Verlauf mit "Ältere Nachrichten laden". loadPage(before) -> { messages (neueste zuerst), hasMore, nextBefore, degraded }.
  * @returns {{ node, load(): Promise, ownSignature(): string }} load() holt die erste Seite (nur einmal), ownSignature() ist die Signatur deiner letzten Nachricht
  */
-export function createThread({ proposalId, ownAddress, loadPage }) {
+export function createThread({ proposalId, ownAddress, loadPage, scrollEl = () => null }) {
   const list = el('div', { class: 'thread-list' });
   const older = el('button', { class: 'btn small thread-older', type: 'button', hidden: true, onclick: () => more() }, icon('chevron', 14), 'Ältere Nachrichten laden');
   const note = el('p', { class: 'hint', hidden: true });
@@ -70,9 +86,13 @@ export function createThread({ proposalId, ownAddress, loadPage }) {
   let state = { hasMore: false, nextBefore: '' };
   let loading = null;
 
-  function render() {
+  // Erste Seite: die neueste Nachricht steht unten und ist sichtbar. Ältere Nachrichten oben: die Ansicht bleibt dort, wo sie war.
+  function render({ keep = false } = {}) {
+    const box = scrollEl();
+    const before = box ? box.scrollHeight - box.scrollTop : 0;
     list.replaceChildren(...messages.map((m) => bubble(m, ctx)));
     older.hidden = !state.hasMore;
+    if (box) requestAnimationFrame(() => (box.scrollTop = keep ? box.scrollHeight - before : box.scrollHeight));
   }
 
   async function fetchPage(before) {
@@ -82,7 +102,7 @@ export function createThread({ proposalId, ownAddress, loadPage }) {
     state = { hasMore: page.hasMore, nextBefore: page.nextBefore };
     note.hidden = !page.degraded;
     if (page.degraded) note.textContent = 'Der Verlauf konnte nicht geladen werden, angezeigt wird nur diese Nachricht.';
-    render();
+    render({ keep: !!before });
   }
 
   async function more() {
@@ -99,6 +119,11 @@ export function createThread({ proposalId, ownAddress, loadPage }) {
 
   return {
     node,
+    /** Nach dem Aufklappen: ans Ende springen, dort steht die neueste Nachricht. */
+    toEnd() {
+      const box = scrollEl();
+      if (box) requestAnimationFrame(() => (box.scrollTop = box.scrollHeight));
+    },
     load() {
       loading ||= fetchPage('').catch((e) => {
         note.hidden = false;

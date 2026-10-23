@@ -7,6 +7,7 @@ import { TABS, renderTabs, renderList, withoutCollapsed } from './components/lis
 import { renderDetail, renderLoading, renderEmpty } from './components/detail.js';
 import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
+import { renderContacts } from './components/contacts-view.js';
 import { readHash, writeHash } from './hash.js';
 import { createSearch } from './search-controller.js';
 import { createAttentionSignal, setupNotifyButton } from './attention-signal.js';
@@ -17,7 +18,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails' };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -102,6 +103,7 @@ async function loadList(fn = api.proposals) {
 
 function clearDetail() {
   stopLearnPolling();
+  state.contacts = null;
   state.selectedId = null;
   state.profile = null;
   state.controller = null;
@@ -264,6 +266,7 @@ async function select(id, { keepView = true } = {}) {
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
+  state.contacts = null;
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
@@ -303,6 +306,7 @@ async function select(id, { keepView = true } = {}) {
         select(id);
       },
       thread: (before) => api.thread(id, { before }),
+      suggest: (q, exclude) => api.suggest(q, exclude),
       outlookDraft: (payload) => api.action('outlook-draft', { id, ...payload }),
       outlookDraftDelete: () => api.action('outlook-draft-delete', { id }),
       outlookSend: () => perform('outlook-send', { id }, { message: (r) => (r?.simulated ? 'Testmodus: Es wurde nichts gesendet. Die Mail liegt jetzt unter Done.' : 'Gesendet. Die Mail liegt jetzt unter Done.') }),
@@ -328,7 +332,7 @@ async function select(id, { keepView = true } = {}) {
     state.controller.setMatch({ heading: null, quiet: true, reason: p.aufgabe_uebernommen ? '' : 'Keine Aufgabe vorgeschlagen. Du kannst trotzdem eine anlegen.' });
   }
   // Der Entwurf entsteht im Hintergrund: solange er fehlt, alle 6 Sekunden nachsehen
-  if (state.controller.hasDraftPanel && !data.draft && !p.entwurf_fehler && !p.is_test) {
+  if (state.controller.hasDraftPanel && !data.draft && !p.entwurf_fehler && !p.is_test && p.antwort_noetig) {
     state.draftTimer = setInterval(() => refreshDraft(id), 6000);
   }
 }
@@ -345,6 +349,7 @@ async function refreshDraft(id) {
 async function openProfile(address) {
   if (!address) return;
   state.learning = false;
+  state.contacts = null;
   stopLearnPolling();
   state.profile = String(address).toLowerCase();
   state.profileTab = 'mails';
@@ -425,6 +430,7 @@ async function showLearn() {
 
 function openLearn() {
   state.profile = null;
+  state.contacts = null;
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
@@ -438,7 +444,68 @@ function closeLearn() {
   else clearDetail();
 }
 
+// --- Kontakte (Adressbuch): Ansicht statt Detail, wie das Lernen
+async function showContacts(note = state.contacts?.note || '', { focusSearch = false } = {}) {
+  const c = state.contacts;
+  if (!c) return;
+  let data;
+  try {
+    data = await api.addressBook({ q: c.q, source: c.source, limit: c.limit });
+  } catch (e) {
+    toast(e.message, { error: true });
+    return closeContacts();
+  }
+  if (state.contacts !== c) return; // inzwischen etwas anderes geöffnet
+  c.note = note;
+  const change = async (op, payload, text) => {
+    try {
+      const r = await api.action('book', { op, ...payload });
+      await showContacts(typeof text === 'function' ? text(r) : text || '');
+    } catch (e) {
+      toast(e.message, { error: true });
+    }
+  };
+  renderContacts($('detail'), data, { q: c.q, source: c.source, focusSearch }, {
+    back: closeContacts,
+    search: (q, source) => {
+      Object.assign(c, { q, source, limit: 200 });
+      return showContacts('', { focusSearch: true });
+    },
+    more: () => {
+      c.limit += 200;
+      return showContacts(c.note);
+    },
+    add: (p) => change('add', p, 'Kontakt hinzugefügt.'),
+    edit: (address, fields) => change('edit', { address, ...fields }, c.note),
+    remove: (address) => change('remove', { address }, 'Kontakt gelöscht.'),
+    importText: (text) => change('import-text', { text }, (r) => `${r.added} neue Kontakte, ${r.updated} aktualisiert${r.skipped ? `, ${r.skipped} Zeilen ohne gültige Adresse` : ''}.`),
+    importSent: () => change('import-sent', {}, (r) => `${r.mails} gesendete Mails gelesen, ${r.people} Empfänger neu im Adressbuch.`),
+    importOutlook: () => change('import-outlook', {}, (r) => (r.empty ? 'In deinem Outlook-Kontaktordner liegen keine Kontakte (nur persönliche Kontakte sind abrufbar, das Firmenverzeichnis nicht).' : `${r.added} neue Kontakte aus Outlook, ${r.updated} aktualisiert.`)),
+    openProfile: (address) => openProfile(address),
+  }, note);
+}
+
+function openContacts() {
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
+  state.contacts = { q: '', source: '', limit: 200, note: '' };
+  showContacts('');
+}
+
+function closeContacts() {
+  state.contacts = null;
+  if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+  else clearDetail();
+}
+
 // --- Kopfzeile
+$('contacts-link').addEventListener('click', (e) => {
+  e.preventDefault();
+  openContacts();
+});
 $('learn-link').addEventListener('click', (e) => {
   e.preventDefault();
   openLearn();

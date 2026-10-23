@@ -12,6 +12,7 @@ import historyLearn from './history-learn.js';
 import outlookDraft from './outlook-draft.js';
 import outlookDraftDelete from './outlook-draft-delete.js';
 import outlookSend from './outlook-send.js';
+import book from './book.js';
 import bulk from './bulk.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, bulk].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, book, bulk].map((a) => [a.name, a]));

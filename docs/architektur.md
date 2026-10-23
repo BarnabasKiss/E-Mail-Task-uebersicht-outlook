@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 server.js               Startpunkt: baut alle Module zusammen, startet Hintergrundjobs und den lokalen Webserver
 config.example.json     Vorlage der Einstellungen (config.json ist nicht im Repo)
-actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, bulk (Sammelaktion)
+actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, bulk (Sammelaktion)
 lib/
   Schnittstelle
     api.js              Routen unter /api/ (nur Routing), statische Dateien
@@ -29,7 +29,7 @@ lib/
     attachment-http.js  Auslieferung eines Anhangs (nie als HTML/Skript)
     open-file.js        Datei mit dem Standardprogramm öffnen (Windows, macOS, Linux)
   Daten und Dienste
-    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent, getThread, saveDraft, deleteDraft, sendDraft)
+    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent, getThread, saveDraft, deleteDraft, sendDraft, listContacts)
     scheduler.js        Hintergrundjobs: Vorschläge, Done-Liste, Antworten, Entwürfe, Lernen (+ Zusatzjobs der Module)
     store.js            lokaler Zustand (state.json, atomar geschrieben)
     config.js           config.json laden, ~ und %VAR% in Pfaden ersetzen
@@ -50,6 +50,8 @@ lib/
     html.js             HTML zu Text, Marken für eingebettete Bilder, zitierte Verläufe abschneiden
     test-mail.js        Testmails (mail_id ab TEST-)
   Verlauf und Antworten
+    address-book.js     Adressbuch für die Empfängerfelder (Vorschläge, Import, eigene Datei address-book.json)
+    address-job.js      Hintergrundjob: Absender und Empfänger der Mails ins Adressbuch
     thread.js           Verlauf einer Konversation (n8n getThread), je Nachricht ohne Zitat und mit getrennter Signatur
     signature.js        Signaturerkennung (Trennzeile, gemeinsames Ende, Grußformel + Kontaktblock)
   Gedächtnis und Lernen
@@ -71,7 +73,8 @@ public/                 Oberfläche
     hash.js, shortcuts.js, status-bar.js, api.js, util.js, icons.js, snooze-options.js
     marking.js, shortcuts.js    markierte Mails (Sammelaktionen) und Tastatur
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
-                        mark-bar, profile, memory-panel, learn-panel, thread (Verlauf), send-box (Empfänger, Ablegen, Senden)
+                        mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
+                        send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge)
 test/                   Tests (node --test); test/ui/ = Oberfläche im simulierten Browser
 n8n/                    Nachbauanleitung, Code der Code-Nodes, Prompt
 docs/                   diese Doku
@@ -99,10 +102,12 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/ai-view` | anonymisierte Vorschau (Mailtext, Bilder, Anhänge, Prüfergebnis) |
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
-| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send` |
+| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book` |
 | `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
+| `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |
+| `GET /address-book?q=&source=&limit=` | Liste und Zahlen für die Kontaktverwaltung (ändern: Aktion `book`) |
 | `GET /contacts/:adresse` | Absender-Profil: Zahlen, Regeln, Gedächtnis (Änderungen: Aktion `contact`) |
 | `GET /history-learn` | Stand des Lernens aus gesendeten Mails (starten: Aktion `history-learn`) |
 

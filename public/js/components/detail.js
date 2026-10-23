@@ -1,5 +1,5 @@
 // Die Detailansicht rechts, eine Spalte: Kopf mit Aktionen, Absender und Empfänger, Anhänge, Aufgabe (eine Zeile), Zusammenfassung (immer sichtbar),
-// Antwortentwurf und darunter der Verlauf als eigene, aufklappbare Sektion. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
+// Verlauf als eigene, aufklappbare Sektion (mit Knopf zum Vergrößern) und darunter die Antwort (Entwurf, Empfänger, Ablegen, Senden). Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
 import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
 import { createTaskRow } from './task-row.js';
@@ -39,11 +39,13 @@ export function renderDetail(container, data, ctx) {
   const taskRow = done ? null : createTaskRow({ proposal: p, headings, isTest: p.is_test, onAccept: handlers.accept });
   // Signatur deiner letzten Nachricht im Verlauf (für "Meine Signatur anhängen"); der Verlauf wird dafür im Hintergrund geladen
   let bodyView = null;
-  const draftPanel = !done && p.antwort_noetig
+  const draftPanel = !done
     ? createDraftPanel({
         draft,
         error: p.entwurf_fehler,
         isTest: p.is_test,
+        needsReply: p.antwort_noetig,
+        suggest: handlers.suggest,
         reply: data.reply,
         ownSignature: () => bodyView?.ownSignature() || '',
         onRegenerate: handlers.regenerate,
@@ -146,10 +148,21 @@ export function renderDetail(container, data, ctx) {
 
   const body = createMailBody({ proposalId: p.id, mail, mailError, handlers, ownAddress: ctx.ownAddress });
   bodyView = body;
+  const sizeBtn = el('button', { class: 'icon-btn v-size', type: 'button', hidden: true, 'aria-pressed': 'false', onclick: () => setBig(!verlauf.classList.contains('big')) });
   const toggle = el('button', { class: 'v-toggle', type: 'button', 'aria-expanded': 'false', onclick: () => setOpen(body.node.hidden) }, icon('chevron', 14), icon('file', 14), 'Verlauf');
   // Das Auge (Original/Anonymisiert) gehört zum Verlauf und ist nur bei aufgeklapptem Verlauf zu sehen
-  const verlauf = el('section', { class: 'card verlauf', 'aria-label': 'Verlauf' }, el('div', { class: 'v-head' }, toggle, el('span', { class: 'spacer' }), body.eye), body.node);
+  const verlauf = el('section', { class: 'card verlauf', 'aria-label': 'Verlauf' }, el('div', { class: 'v-head' }, toggle, el('span', { class: 'spacer' }), body.eye, sizeBtn), body.node);
+  // Vergrößern: der Verlauf zeigt alles ohne Scrollen im Rahmen; nochmal klicken macht ihn wieder so klein wie vorher
+  function setBig(big) {
+    verlauf.classList.toggle('big', big);
+    sizeBtn.setAttribute('aria-pressed', String(big));
+    sizeBtn.title = big ? 'Verlauf verkleinern' : 'Verlauf vergrößern: alles ohne Scrollen zeigen';
+    sizeBtn.setAttribute('aria-label', sizeBtn.title);
+    sizeBtn.replaceChildren(icon(big ? 'shrink' : 'expand', 15));
+  }
+  setBig(false);
   function setOpen(open) {
+    sizeBtn.hidden = !open;
     body.node.hidden = !open;
     toggle.setAttribute('aria-expanded', String(open));
     verlauf.classList.toggle('open', open);
@@ -159,8 +172,8 @@ export function renderDetail(container, data, ctx) {
   }
   setOpen(ctx.view === 'message');
 
-  // Reihenfolge: Person, Anhänge, Aufgabe, Zusammenfassung, Antwortentwurf, Verlauf (ein aufgeklappter Verlauf schiebt den Entwurf nicht weg)
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, taskRow?.node, summary, draftPanel?.node, verlauf));
+  // Reihenfolge: Person, Anhänge, Aufgabe, Zusammenfassung, Verlauf, Antwort
+  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, people, attachmentsBox, taskRow?.node, summary, verlauf, draftPanel?.node));
   container.scrollTop = 0;
   if (draftPanel) body.preload().then(() => draftPanel.refresh());
 
