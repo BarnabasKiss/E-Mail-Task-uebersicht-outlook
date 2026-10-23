@@ -61,8 +61,8 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
 ## Verlauf als Nachrichten
 Der Tab **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, die neueste unten (zunächst die letzten 10, darüber **Ältere Nachrichten laden**).
 - **Deine Nachrichten stehen rechts, die der anderen links.** Jede andere Person hat ihre eigene Farbe (immer dieselbe für dieselbe Adresse), die Nachricht, die du geöffnet hast, ist umrandet.
-- **Kopfzeile je Nachricht:** `● Absender → An: Namen · CC: Namen` und die Zeit, in einer Zeile. Mehr als zwei Namen stehen als „+n“, alle Adressen im Tooltip. Du selbst heißt „Du“,
-  eine Büroklammer zeigt einen Anhang.
+- **Kopfzeile je Nachricht:** nur der Name des Absenders (du selbst heißt „Du“) und die Zeit, in einer Zeile; eine Büroklammer zeigt einen Anhang. Fährst du mit der Maus über den Namen
+  (oder springst mit der Tab-Taste hin), erscheint die vollständige Liste in den Blöcken **Von**, **An** und **CC**, je Zeile mit Name und Adresse.
 - **Ohne zitierten Verlauf:** Outlook hängt in jede Antwort die alten Mails an. Die App schneidet das ab, weil jede frühere Nachricht ohnehin selbst im Verlauf steht.
 - **Signaturen** erkennt die App selbst (Trennzeile „-- “, Grußformel mit Kontaktblock darunter, „Gesendet von meinem iPhone“, und ein Ende, das bei demselben Absender in mehreren Nachrichten gleich ist).
   Sie stehen unter der Nachricht im zugeklappten Dropdown **Signatur**. Im Zweifel bleibt Text stehen: Es wird nie etwas gelöscht, nur ausgeblendet.

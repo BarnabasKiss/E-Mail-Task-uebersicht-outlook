@@ -1,12 +1,12 @@
 // Der Verlauf einer Konversation als Nachrichten: deine eigenen rechts, die der anderen links, jede Person in ihrer Farbe.
-// Jede Nachricht hat oben eine kompakte Zeile (wer an wen, CC), darunter den Text ohne zitierten Verlauf und unten die Signatur als Dropdown.
+// Jede Nachricht hat oben eine Zeile mit dem Namen (An und CC beim Darüberfahren), darunter den Text ohne zitierten Verlauf und unten die Signatur als Dropdown.
 import { el, hueOf, formatFull } from '../util.js';
 import { icon } from '../icons.js';
 import { textWithImages } from './mail-text.js';
 
 const label = (p, ownAddress) => (p.address && p.address.toLowerCase() === String(ownAddress).toLowerCase() ? 'Du' : p.name || p.address || '?');
 
-// Kurzform für die Kopfzeile: erster Name, der Rest als "+n"
+// Kurzform für die Beschriftung (Vorlesen): erste zwei Namen, der Rest als "+n"
 function brief(list, ownAddress) {
   const names = list.map((p) => label(p, ownAddress));
   return names.length > 1 ? `${names[0]}, ${names[1]}${names.length > 2 ? ` +${names.length - 2}` : ''}` : names[0] || '';
@@ -39,14 +39,11 @@ function bubble(m, { proposalId, ownAddress }) {
       el(
         'header',
         { class: 'b-head' },
-        // Eine Zeile: Absender → An … CC …; beim Darüberfahren oder per Tastatur-Fokus erscheint die vollständige Liste
+        // Standardmäßig nur der Name; beim Darüberfahren oder per Tastatur-Fokus erscheint die vollständige Liste (Von, An, CC)
         el(
           'div',
           { class: 'b-people', tabindex: '0', 'aria-label': `Von ${who}, an ${brief(m.to, ownAddress)}${m.cc.length ? `, CC ${brief(m.cc, ownAddress)}` : ''}` },
           el('span', { class: 'b-from' }, el('i', { class: 'b-dot' }), who),
-          m.to.length > 0 && el('span', { class: 'b-arrow', 'aria-hidden': 'true' }, '→'),
-          m.to.length > 0 && el('span', { class: 'b-to' }, brief(m.to, ownAddress)),
-          m.cc.length > 0 && el('span', { class: 'b-cc' }, el('span', { class: 'b-cc-label' }, 'CC'), brief(m.cc, ownAddress)),
           popover(m, ownAddress),
         ),
         el('span', { class: 'spacer' }),

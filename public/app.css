@@ -512,7 +512,6 @@ a.att:hover { background: var(--hover); }
 .b-head { display: flex; align-items: baseline; gap: 6px; min-width: 0; font-size: 12px; color: var(--muted); margin-bottom: 4px; white-space: nowrap; }
 .b-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--h, 230) 55% 52%); }
 .bubble-row.own .b-dot { background: var(--accent); }
-.b-arrow { color: var(--faint); }
 .b-att { display: inline-flex; align-self: center; color: var(--faint); }
 .b-time { flex: none; font-size: 11.5px; color: var(--faint); }
 .b-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
@@ -556,9 +555,6 @@ a.att:hover { background: var(--hover); }
 .thread-older[hidden] { display: none; }
 .b-people { position: relative; display: flex; align-items: baseline; gap: 6px; flex: 0 1 auto; min-width: 0; outline: none; cursor: default; }
 .b-from { display: inline-flex; align-items: center; gap: 5px; flex: 0 1 auto; min-width: 0; max-width: 20em; overflow: hidden; text-overflow: ellipsis; font-weight: 700; color: var(--text); }
-.b-to { flex: 0 1 auto; min-width: 0; max-width: 28em; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.b-cc { flex: 0 100 auto; min-width: 0; max-width: 18em; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
-.b-cc-label { margin-right: 4px; padding: 0 5px; border-radius: 99px; background: color-mix(in srgb, var(--text) 8%, transparent); font-size: 10.5px; font-weight: 650; letter-spacing: .03em; }
 .b-people:hover, .b-people:focus-visible { color: var(--text); }
 .b-pop { display: none; position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: max-content; min-width: 240px; max-width: min(460px, 80vw); padding: 8px 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); white-space: normal; font-weight: 400; font-size: 12.5px; line-height: 1.4; }
 .bubble-row.own .b-pop { left: auto; right: 0; }

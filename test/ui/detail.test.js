@@ -223,12 +223,9 @@ test('Verlauf: Nachrichten alt nach neu, eigene rechts, andere links in ihrer Fa
   const rows = [...box.querySelectorAll('.bubble-row')];
   assert.deepEqual(rows.map((r) => r.dataset.id), ['M1', 'M2', 'M3'], 'älteste zuerst');
   assert.deepEqual(rows.map((r) => r.classList.contains('own')), [false, true, false]);
-  const part = (r, sel) => r.querySelector(sel)?.textContent ?? null;
-  const line = (r) => [part(r, '.b-from'), part(r, '.b-to'), part(r, '.b-cc')];
-  assert.deepEqual(line(rows[0]), ['Helga Brunner', 'Du', null]);
-  assert.deepEqual(line(rows[1]), ['Du', 'Helga Brunner', 'CCPaul Weber, A +1'], 'zwei Namen, der Rest als +n, CC als eigene Marke');
-  assert.deepEqual(line(rows[2]), ['Paul Weber', 'Helga Brunner, Du', null]);
-  assert.equal(rows[1].querySelectorAll('.b-head .b-people').length, 1, 'alles in einer Zeile');
+  const from = (r) => r.querySelector('.b-from').textContent;
+  assert.deepEqual(rows.map(from), ['Helga Brunner', 'Du', 'Paul Weber'], 'in der Kopfzeile steht nur der Name');
+  assert.ok(rows.every((r) => !r.querySelector('.b-to, .b-cc, .b-arrow')), 'An und CC stehen nicht in der Kopfzeile');
   // Vollständige Liste als Popover (kein Browser-Tooltip): Von, An und CC getrennt, je Zeile Name und Adresse
   const pop = rows[1].querySelector('.b-pop');
   assert.deepEqual([...pop.querySelectorAll('.pop-title')].map((x) => x.textContent), ['Von', 'An', 'CC']);
