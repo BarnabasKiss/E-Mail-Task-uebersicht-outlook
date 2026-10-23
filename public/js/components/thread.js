@@ -4,16 +4,26 @@ import { el, hueOf, formatFull } from '../util.js';
 import { icon } from '../icons.js';
 import { textWithImages } from './mail-text.js';
 
-const FIRST = 2; // so viele Namen stehen in der Kopfzeile, der Rest als "+n" (alle im Tooltip)
-
 const label = (p, ownAddress) => (p.address && p.address.toLowerCase() === String(ownAddress).toLowerCase() ? 'Du' : p.name || p.address || '?');
-const tip = (list) => list.map((p) => (p.name && p.address ? `${p.name} <${p.address}>` : p.name || p.address)).join('\n');
 
-function recipients(prefix, list, ownAddress) {
-  if (!list.length) return null;
+// Kurzform für die Kopfzeile: erster Name, der Rest als "+n"
+function brief(list, ownAddress) {
   const names = list.map((p) => label(p, ownAddress));
-  const more = names.length - FIRST;
-  return el('span', { class: 'b-rcpt', title: tip(list) }, el('span', { class: 'b-rcpt-label' }, prefix), names.slice(0, FIRST).join(', '), more > 0 && el('span', { class: 'b-more' }, ` +${more}`));
+  return names.length > 1 ? `${names[0]}, ${names[1]}${names.length > 2 ? ` +${names.length - 2}` : ''}` : names[0] || '';
+}
+
+// Vollständige Liste beim Darüberfahren: je Zeile Name und Adresse, getrennt nach An und CC
+function popover(m, ownAddress) {
+  const group = (title, list) =>
+    list.length
+      ? [
+          el('div', { class: 'pop-title' }, title),
+          ...list.map((p) =>
+            el('div', { class: 'pop-row' }, el('span', { class: 'pop-name' }, label(p, ownAddress)), p.address && label(p, ownAddress) !== p.address && el('span', { class: 'pop-addr' }, p.address)),
+          ),
+        ]
+      : [];
+  return el('div', { class: 'b-pop', role: 'tooltip' }, el('div', { class: 'pop-title' }, 'Von'), el('div', { class: 'pop-row' }, el('span', { class: 'pop-name' }, m.own ? 'Du' : m.from.name || m.from.address), m.from.name && m.from.address && el('span', { class: 'pop-addr' }, m.from.address)), ...group('An', m.to), ...group('CC', m.cc));
 }
 
 /** m: Nachricht vom Server. Die geöffnete Mail zeigt ihre Bilder an der richtigen Stelle. */
@@ -29,8 +39,16 @@ function bubble(m, { proposalId, ownAddress }) {
       el(
         'header',
         { class: 'b-head' },
-        el('span', { class: 'b-from', title: m.from.address ? `${m.from.name} <${m.from.address}>` : m.from.name }, el('i', { class: 'b-dot' }), who),
-        el('span', { class: 'b-to' }, el('span', { class: 'b-arrow', 'aria-hidden': 'true' }, '→'), recipients('', m.to, ownAddress), recipients('CC ', m.cc, ownAddress)),
+        // Eine Zeile: Absender → An … CC …; beim Darüberfahren oder per Tastatur-Fokus erscheint die vollständige Liste
+        el(
+          'div',
+          { class: 'b-people', tabindex: '0', 'aria-label': `Von ${who}, an ${brief(m.to, ownAddress)}${m.cc.length ? `, CC ${brief(m.cc, ownAddress)}` : ''}` },
+          el('span', { class: 'b-from' }, el('i', { class: 'b-dot' }), who),
+          m.to.length > 0 && el('span', { class: 'b-arrow', 'aria-hidden': 'true' }, '→'),
+          m.to.length > 0 && el('span', { class: 'b-to' }, brief(m.to, ownAddress)),
+          m.cc.length > 0 && el('span', { class: 'b-cc' }, el('span', { class: 'b-cc-label' }, 'CC'), brief(m.cc, ownAddress)),
+          popover(m, ownAddress),
+        ),
         el('span', { class: 'spacer' }),
         m.hasAttachments && el('span', { class: 'b-att', title: 'Mit Anhang' }, icon('paperclip', 12)),
         el('time', { class: 'b-time' }, formatFull(m.sent)),

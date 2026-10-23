@@ -223,12 +223,18 @@ test('Verlauf: Nachrichten alt nach neu, eigene rechts, andere links in ihrer Fa
   const rows = [...box.querySelectorAll('.bubble-row')];
   assert.deepEqual(rows.map((r) => r.dataset.id), ['M1', 'M2', 'M3'], 'älteste zuerst');
   assert.deepEqual(rows.map((r) => r.classList.contains('own')), [false, true, false]);
-  const from = (r) => r.querySelector('.b-from').textContent;
-  const rcpts = (r) => [...r.querySelectorAll('.b-rcpt')].map((x) => x.textContent);
-  assert.deepEqual([from(rows[0]), rcpts(rows[0])], ['Helga Brunner', ['Du']]);
-  assert.deepEqual([from(rows[1]), rcpts(rows[1])], ['Du', ['Helga Brunner', 'CC Paul Weber, A +1']], 'zwei Namen, der Rest als +n');
-  assert.deepEqual([from(rows[2]), rcpts(rows[2])], ['Paul Weber', ['Helga Brunner, Du']]);
-  assert.match(rows[1].querySelector('.b-rcpt[title*="b@x.at"]').getAttribute('title'), /Paul Weber <paul@partner\.at>/, 'alle Adressen im Tooltip');
+  const part = (r, sel) => r.querySelector(sel)?.textContent ?? null;
+  const line = (r) => [part(r, '.b-from'), part(r, '.b-to'), part(r, '.b-cc')];
+  assert.deepEqual(line(rows[0]), ['Helga Brunner', 'Du', null]);
+  assert.deepEqual(line(rows[1]), ['Du', 'Helga Brunner', 'CCPaul Weber, A +1'], 'zwei Namen, der Rest als +n, CC als eigene Marke');
+  assert.deepEqual(line(rows[2]), ['Paul Weber', 'Helga Brunner, Du', null]);
+  assert.equal(rows[1].querySelectorAll('.b-head .b-people').length, 1, 'alles in einer Zeile');
+  // Vollständige Liste als Popover (kein Browser-Tooltip): Von, An und CC getrennt, je Zeile Name und Adresse
+  const pop = rows[1].querySelector('.b-pop');
+  assert.deepEqual([...pop.querySelectorAll('.pop-title')].map((x) => x.textContent), ['Von', 'An', 'CC']);
+  assert.match(pop.textContent, /Paul Weberpaul@partner\.at/);
+  assert.match(pop.textContent, /b@x\.at/);
+  assert.equal(rows[1].querySelector('.b-people[title]'), null, 'kein title-Tooltip'); 
   const hue = (r) => r.querySelector('.bubble').getAttribute('style');
   assert.match(hue(rows[0]), /--h:\d+/);
   assert.notEqual(hue(rows[0]), hue(rows[2]), 'verschiedene Personen, verschiedene Farben');
@@ -343,4 +349,13 @@ test('Senden: Signatur aus dem Verlauf lässt sich anhängen', opts, async () =>
   box.querySelector('.send-actions .btn').click();
   await tick(30);
   assert.equal(calls[1].text, 'Hallo Helga,\n\nTermin passt.');
+});
+
+test('Verlauf: Adressen ohne Namen stehen im Popover nur einmal; "Ältere laden" verschwindet, wenn alles geladen ist', opts, async () => {
+  const noName = { ...page1, messages: [{ ...page1.messages[0], cc: [addr('', 'service@gaminside.com')] }], hasMore: false };
+  const { box } = await render({}, { view: 'message', extra: { thread: async () => noName } });
+  await tick(30);
+  const rows = [...box.querySelectorAll('.b-pop .pop-row')].map((r) => r.textContent);
+  assert.ok(rows.includes('service@gaminside.com'), 'nur die Adresse, ohne Wiederholung');
+  assert.ok(box.querySelector('.thread-older').hidden, 'nichts mehr zu laden: Knopf versteckt');
 });
