@@ -26,7 +26,7 @@ export const dictationSupported = (win = globalThis.window) => recorderSupported
 
 /**
  * textarea: Feld, in das diktiert wird (an der Schreibmarke). hint: Element für Zwischenstand und Meldungen (oder null). onText: nach jeder Einfügung.
- * deps (für Tests): { speechStatus(), transcribe(blob), startRecorder({ onSegment }) }.
+ * deps (für Tests): { speechStatus(), transcribe(blob), startRecorder({ onSegment, alive }) }.
  * Rückgabe: { node, stop() }
  */
 export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, hint = null, win = globalThis.window, deps = {} }) {
@@ -41,6 +41,8 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
   let rec = null; // Browser-Erkennung
   let recorder = null; // lokale Aufnahme
   let chain = Promise.resolve();
+  let startId = 0; // ein "Stopp" während des Mikrofon-Dialogs macht den laufenden Start ungültig
+  let lastError = '';
 
   const say = (text) => {
     if (hint) hint.textContent = text;
@@ -74,16 +76,21 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
       say('… wird erkannt');
       try {
         insert(await transcribe(blob));
+        lastError = '';
         say(state === 'listening' ? 'Ich höre zu …' : '');
       } catch (e) {
+        lastError = e.message;
         say(e.message);
       }
     });
     return chain;
   }
 
-  async function startLocal() {
-    recorder = await startRecorder({ onSegment: (blob) => enqueue(blob) });
+  // alive: verschwindet das Feld (andere Mail, andere Ansicht), beendet sich die Aufnahme von selbst und das Mikrofon wird frei
+  async function startLocal(id) {
+    const r = await startRecorder({ onSegment: (blob) => enqueue(blob), alive: () => button.isConnected });
+    if (id !== startId) return r.stop(); // inzwischen auf "Stopp" geklickt
+    recorder = r;
   }
 
   async function stopLocal() {
@@ -96,7 +103,7 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
     } finally {
       recorder = null;
       state = 'idle';
-      say('');
+      say(lastError); // ein Fehler beim letzten Abschnitt bleibt sichtbar
       paint();
     }
   }
@@ -109,6 +116,7 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
     rec.interimResults = true;
     rec.onresult = (e) => {
       let interim = '';
+      if (!button.isConnected) return rec.stop();
       for (let i = e.resultIndex; i < e.results.length; i += 1) {
         const r = e.results[i];
         if (r.isFinal) insert(r[0].transcript);
@@ -147,13 +155,17 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
   }
 
   async function start() {
+    const id = (startId += 1);
+    lastError = '';
     state = 'listening';
     say('Mikrofon wird gestartet …');
     paint();
     try {
       engine = await chooseEngine();
-      if (engine === 'local') await startLocal();
+      if (id !== startId) return;
+      if (engine === 'local') await startLocal(id);
       else startBrowser();
+      if (id !== startId) return;
       say(engine === 'local' ? 'Ich höre zu … (lokal, ohne Netz)' : 'Ich höre zu … (Spracherkennung des Browsers)');
     } catch (e) {
       state = 'idle';
@@ -164,6 +176,7 @@ export function createDictation({ textarea, lang = 'de-AT', onText = () => {}, h
 
   async function stop() {
     if (state === 'idle') return;
+    startId += 1;
     if (engine === 'local' && recorder) return stopLocal();
     state = 'idle';
     try {

@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 server.js               Startpunkt: baut alle Module zusammen, startet Hintergrundjobs und den lokalen Webserver
 config.example.json     Vorlage der Einstellungen (config.json ist nicht im Repo)
-actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, compose (compose-draft, compose-send, compose-discard), text-tools (text-improve, text-subject), outbox (mail-draft-save, mail-draft-delete, schedule, schedule-cancel, schedule-now, reply-edit), bulk (Sammelaktion)
+actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, review-revert, contact, history-learn, outlook-draft, outlook-draft-delete, outlook-send, book, compose (compose-draft, compose-send, compose-discard), text-tools (text-improve, text-subject), send-check, outbox (mail-draft-save, mail-draft-delete, schedule, schedule-cancel, schedule-now, reply-edit), bulk (Sammelaktion)
 lib/
   Schnittstelle
     api.js              Routen unter /api/ (nur Routing), statische Dateien
@@ -51,7 +51,9 @@ lib/
     test-mail.js        Testmails (mail_id ab TEST-)
   Verlauf und Antworten
     outbox.js           App-Entwürfe neuer Mails und geplante Mails (Job zur Sendezeit)
-    text-tools.js       Rechtschreibung, Struktur, Lücken, Betreff über claude -p (pseudonymisiert)
+    text-tools.js       Umschreiben (kürzer, förmlicher, freundlicher, Stichpunkte → Mail), Übersetzen, Rechtschreibung, Struktur, Lücken, Betreff über claude -p (pseudonymisiert)
+    send-check.js       Warnungen vor dem Senden (Du/Sie, Firmen, BCC, Anhang), rein lokal
+    speech.js           lokale Spracherkennung: startet tools/stt-worker.py, Aufträge nacheinander, Leerlauf-Ende, Halluzinationsfilter
     reply-sent.js       was nach dem Senden einer Antwort zu tun ist
     address-book.js     Adressbuch für die Empfängerfelder (Vorschläge, Import, eigene Datei address-book.json)
     address-job.js      Hintergrundjob: Absender und Empfänger der Mails ins Adressbuch
@@ -78,8 +80,11 @@ public/                 Oberfläche
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
                         mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
                         send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail), outbox-view (Entwürfe, Geplantes),
-                        improve-bar (Werkzeuge), dictation (Spracheingabe), schedule-menu (Senden planen);
-                        countdown.js (30 Sekunden vor dem Senden), dictation-text.js (Sprachbefehle)
+                        improve-bar (Werkzeugleiste mit Versionsliste), tool-menu (Aufklappliste), send-warn (Warnungen vor dem Senden),
+                        dictation (Spracheingabe), schedule-menu (Senden planen);
+                        recorder.js, recorder-logic.js (Mikrofonaufnahme, Schnitt an Sprechpausen),                         countdown.js (30 Sekunden vor dem Senden), dictation-text.js (Sprachbefehle)
+tools/stt-worker.py      Python-Worker der Spracherkennung (faster-whisper), Zeilenprotokoll über stdin/stdout
+install-speech.sh       richtet die Spracherkennung ein (Python-Umgebung + Modell)
 test/                   Tests (node --test); test/ui/ = Oberfläche im simulierten Browser
 n8n/                    Nachbauanleitung, Code der Code-Nodes, Prompt
 docs/                   diese Doku
@@ -107,11 +112,12 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/ai-view` | anonymisierte Vorschau (Mailtext, Bilder, Anhänge, Prüfergebnis) |
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
-| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard`, `text-improve`, `text-subject`, `mail-draft-save`, `mail-draft-delete`, `schedule`, `schedule-cancel`, `schedule-now`, `reply-edit` |
+| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard`, `text-improve`, `text-subject`, `send-check`, `mail-draft-save`, `mail-draft-delete`, `schedule`, `schedule-cancel`, `schedule-now`, `reply-edit` |
 | `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
 | `GET /outbox` | App-Entwürfe, geplante Mails und Zähler |
+| `GET /speech`, `POST /transcribe` | Stand der lokalen Spracherkennung; Audio (rohe Bytes, Header `x-mail-app: 1`) in Text umsetzen |
 | `GET /compose-info` | gemerkte Signatur für neue Mails |
 | `GET /address-book/suggest?q=&exclude=` | Vorschläge für die Empfängerfelder |
 | `GET /address-book?q=&source=&limit=` | Liste und Zahlen für die Kontaktverwaltung (ändern: Aktion `book`) |
@@ -120,14 +126,11 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 
 ## Erweitern
 **Neue Aktion:** `actions/meine-aktion.js` mit `export default { name: 'meine-aktion', async run(services, payload) { … } }`, in `actions/index.js` aufnehmen,
-in der Oberfläche `api.action('meine-aktion', {…})` aufrufen. `services` = `{ n8n, vault, rules, store, drafts, matcher, scheduler, review, actions }`.
+in der Oberfläche `api.action('meine-aktion', {…})` aufrufen. `services` = `{ n8n, vault, rules, store, drafts, matcher, scheduler, review, contacts, history, addressBook, outbox, textTools, ownAddress, actions }`.
 
 **Neuer Hintergrundjob:** ein Modul mit `run()`, in `server.js` als `[name, run, Sekunden]` in `extraJobs` eintragen (Vorbild: `lib/roles.js`).
 
 **Neues Feld in der Liste:** in `lib/proposal-view.js` ergänzen, in `public/js/components/list.js` darstellen, Test in `test/api.test.js` und `test/ui/list.test.js`.
-
-**Entwürfe direkt in Outlook ablegen:** Heute landet der Entwurf in der Oberfläche (Kopieren-Knopf in `draft-panel.js`). Für Outlook-Entwürfe braucht n8n eine
-weitere Aktion, die mit `saveAsDraft: true` antwortet (ohne diese Option sendet der Outlook-Node sofort), und Schreibrechte der Outlook-Verbindung.
 
 ## Entwicklung und Tests
 - `node --test` führt alle Tests aus (ohne Netz, ohne Outlook, ohne Claude). Windows, Linux und macOS werden bei jedem Push von GitHub Actions geprüft

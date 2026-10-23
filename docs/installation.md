@@ -16,9 +16,20 @@
 | Linux (Debian/Ubuntu) | `sudo apt install poppler-utils` | `sudo apt install tesseract-ocr tesseract-ocr-deu` |
 | macOS | `brew install poppler` | `brew install tesseract tesseract-lang` |
 
+- Optional, für das **Diktieren**: **Python 3** und `./install-speech.sh` (siehe [Diktieren einrichten](#diktieren-einrichten)).
+
 **tesseract ohne root (Linux):** Die Pakete `tesseract`, `tesseract-libs`, `tesseract-common`, `tesseract-langpack-deu` und `-eng` mit
 `dnf download` laden und mit `rpm2cpio <datei> | cpio -idm` nach `<Datenordner>/tesseract/` entpacken (etwa 9 MB). Die App findet das
 beim Start selbst (Meldung „tesseract aus dem Datenordner“), sonst nimmt sie das tesseract aus dem `PATH`.
+
+## Diktieren einrichten
+Das Diktieren erkennt Sprache lokal mit [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (läuft auf der CPU, auch in Brave und unter Linux/Wayland, ohne Cloud).
+1. `./install-speech.sh` (Linux/macOS) ausführen. Es legt eine eigene Python-Umgebung unter `<Datenordner>/speech-venv` an und lädt das Modell einmalig herunter
+   (Standard `large-v3-turbo`, etwa 1,6 GB; kleiner und schneller: `./install-speech.sh small`, etwa 460 MB). Unter Windows dieselben Schritte von Hand: `py -m venv`, dann `pip install faster-whisper "av>=14,<17"`.
+2. App neu starten. Beim ersten Klick auf **Diktieren** fragt der Browser nach dem Mikrofon (erlauben).
+3. Das Modell lädt beim ersten Diktat (einige Sekunden) und wird nach 10 Minuten Leerlauf wieder beendet.
+
+Einstellungen: [`speech`](konfiguration.md#diktieren-speech-optional). Claude selbst kann keine Audiodaten verarbeiten; das Modell hier ist ein reines Spracherkennungsmodell, das nur auf deinem Rechner läuft.
 
 ## Einrichten auf einem neuen Gerät
 1. Repo klonen.
@@ -52,6 +63,8 @@ XDG-Datenordner ersetzt (`$XDG_DATA_HOME/mail-app`, meist `~/.local/share/mail-a
 | `review-log/` | gesendete Prompts der Anhangs-Bewertung (nur anonymisierter Text, die letzten 40) |
 | `backups/` | Sicherungen der Aufgabenliste vor jeder Änderung |
 | `tesseract/` | optional: entpacktes tesseract (siehe oben) |
+| `speech-venv/` | optional: Python-Umgebung der lokalen Spracherkennung (siehe [Diktieren einrichten](#diktieren-einrichten)) |
+| `address-book.json` | Adressbuch für die Empfängerfelder |
 | `test-anhaenge/` | Dateien für Testmails (`<mail_id>/…`) |
 
 Alles darin enthält echte Inhalte. Nicht in eine Cloud legen (OneDrive, Dropbox). Löschen ist ungefährlich: Der Index baut sich neu auf,

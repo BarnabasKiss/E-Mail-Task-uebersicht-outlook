@@ -91,6 +91,9 @@ button { cursor: pointer; }
 .btn.danger { color: var(--jetzt); }
 .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); box-shadow: none; }
 .btn.ghost:hover { background: var(--hover); color: var(--text); }
+/* Kopfzeile: die offene Ansicht (Entwürfe, Kontakte, Lernen) bleibt hervorgehoben */
+.btn.ghost[aria-current='page'] { background: var(--accent-weak); color: var(--accent); font-weight: 600; }
+.btn.primary[aria-current='page'] { box-shadow: 0 0 0 3px var(--accent-weak); filter: brightness(0.92); }
 .btn[disabled], .btn.disabled { opacity: .5; cursor: not-allowed; pointer-events: auto; }
 .btn.disabled:hover, .btn[disabled]:hover { background: var(--panel); }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--border); background: var(--panel); border-radius: 8px; color: var(--muted); }

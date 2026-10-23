@@ -51,6 +51,15 @@ function showOutboxCount(s) {
 const statusBar = createStatusBar({ chip: $('status'), rulesLink: $('rules-link'), onStatus: showOutboxCount });
 const attention = createAttentionSignal({ onOpen: (id) => showItem(id) });
 
+// Kopfzeile: welche Ansicht gerade offen ist (Neue Mail, Entwürfe, Kontakte, Lernen), gemerkt über aria-current
+function syncNav() {
+  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning };
+  for (const [id, on] of Object.entries(open)) {
+    if (on) $(id).setAttribute('aria-current', 'page');
+    else $(id).removeAttribute('aria-current');
+  }
+}
+
 const syncHash = () => writeHash({ selectedId: state.selectedId, view: state.view, query: search.query, filters: search.filters, profile: state.profile });
 
 // --- Liste
@@ -125,6 +134,7 @@ function clearDetail() {
   state.controller = null;
   clearInterval(state.draftTimer);
   renderEmpty($('detail'));
+  syncNav();
   syncHash();
 }
 
@@ -281,7 +291,9 @@ function markRange(id) {
 function leaveCompose() {
   if (!state.compose) return true;
   state.compose.view.flush?.();
+  state.compose.view.stopDictation?.();
   state.compose = null;
+  syncNav();
   return true;
 }
 
@@ -296,6 +308,7 @@ async function openCompose(prefill = {}) {
   const info = await api.composeInfo().catch(() => ({ signature: '' }));
   const handle = { view: null };
   state.compose = handle;
+  syncNav();
   handle.view = renderCompose($('detail'), {
     signature: info.signature,
     prefill,
@@ -377,6 +390,7 @@ function openOutbox() {
   state.learning = false;
   state.contacts = null;
   state.outbox = { note: '' };
+  syncNav();
   showOutbox('');
 }
 
@@ -396,6 +410,7 @@ async function select(id, { keepView = true } = {}) {
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
+  syncNav();
   renderLeft();
   renderLoading($('detail'));
   syncHash();
@@ -456,10 +471,6 @@ async function select(id, { keepView = true } = {}) {
         await api.action('regenerate-draft', { id, ...opts }).catch(failed);
         await refreshDraft(id);
       },
-      previousDraft: async () => {
-        await api.action('draft-previous', { id }).catch(failed);
-        await refreshDraft(id);
-      },
     },
   });
 
@@ -497,6 +508,7 @@ async function openProfile(address) {
   state.profileTab = 'mails';
   clearInterval(state.draftTimer);
   state.controller = null;
+  syncNav();
   renderLoading($('detail'));
   syncHash();
   await showProfile();
@@ -578,6 +590,7 @@ function openLearn() {
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
+  syncNav();
   showLearn();
 }
 
@@ -637,6 +650,7 @@ function openContacts() {
   state.profile = null;
   state.learning = false;
   state.contacts = { q: '', source: '', limit: 200, note: '' };
+  syncNav();
   showContacts('');
 }
 

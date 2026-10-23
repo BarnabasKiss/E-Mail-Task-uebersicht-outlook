@@ -35,7 +35,18 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
   const status = el('span', { class: 'send-status', role: 'status' });
   const undoBar = el('div', { class: 'send-undo', hidden: true });
   const warnBox = el('div', { class: 'warn-box', hidden: true, role: 'alert' });
-  const warnOk = () => (check ? confirmWarnings(warnBox, () => check({ text: text.value.trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() })) : true);
+  // während die Hinweise offen sind, ist alles gesperrt: die Bestätigung gilt dann für genau diese Mail
+  const warnOk = async () => {
+    if (!check) return true;
+    busy = true;
+    update();
+    try {
+      return await confirmWarnings(warnBox, () => check({ text: text.value.trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() }));
+    } finally {
+      busy = false;
+      update();
+    }
+  };
 
   const bar = createImproveBar({
     getText: () => text.value,
@@ -249,5 +260,5 @@ export function renderCompose(container, { signature = '', prefill = {}, suggest
   );
   if (prefill.draftId) saved.textContent = 'Entwurf aus der App geöffnet';
   (prefill.to?.length ? text : text).focus?.();
-  return { dirty: () => unsaved && !finished, flush: saveApp };
+  return { dirty: () => unsaved && !finished, flush: saveApp, stopDictation: bar.stopDictation };
 }

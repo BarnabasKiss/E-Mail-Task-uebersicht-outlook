@@ -62,7 +62,7 @@ const speech = createSpeech({
   enabled: cfg.speech?.enabled !== false,
   python: cfg.speech?.python || defaultPython(cfg.dataDir),
   script: path.join(cfg.root, 'tools', 'stt-worker.py'),
-  model: cfg.speech?.model || 'small',
+  model: cfg.speech?.model || 'large-v3-turbo',
   language: cfg.speech?.language || 'de',
   tmpDir: dataFile('tmp'),
   log,

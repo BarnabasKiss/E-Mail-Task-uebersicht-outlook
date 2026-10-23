@@ -70,7 +70,7 @@ Die Sektion **Verlauf** zeigt alle Nachrichten der Konversation, älteste oben, 
 
 ## Antwort aus der App: Entwurf ablegen und senden
 Die Antwort steht bei jeder offenen Mail unter dem Verlauf, auch wenn laut Bewertung keine nötig ist (dann ohne automatischen Entwurf, du schreibst selbst oder klickst „Jetzt erzeugen“). In Done gibt es sie nicht.
-- **Über dem Text** stehen die [Werkzeuge](#werkzeuge-für-den-text) (Rechtschreibung, Struktur, Lücken, Diktieren).
+- **Unter dem Text** steht die [Werkzeugleiste](#werkzeuge-für-den-text) (Diktieren, Umschreiben, Übersetzen, Prüfen).
 - **An, CC und BCC** sind Felder mit Adressen als Chips. Vorbelegt ist „Nur an den Absender“ oder, wenn die Mail weitere Empfänger hatte, **Allen antworten** (ohne deine eigenen Adressen).
   BCC steht hinter „+ BCC“. Beim Tippen schlägt das [Adressbuch](#kontakte-das-adressbuch) Personen vor (Pfeiltasten und Enter, oder Klick); Enter, Komma, Semikolon oder Leerzeichen übernehmen eine getippte Adresse,
   mehrere eingefügte Adressen („Name <a@x.at>, b@y.at“) werden sofort zerlegt, die Rücktaste im leeren Feld entfernt die letzte. Eine Adresse steht nur in einem Feld (An vor CC vor BCC).
@@ -110,7 +110,7 @@ Eine Leiste unter dem Text jeder Antwort und jeder neuen Mail: **Diktieren | Ums
 - **Senden planen** gibt es bei neuen Mails und bei Antworten: heute 16:00, morgen 08:00, Montag 08:00 oder eine eigene Zeit. Bei Antworten gibt es dazu „Danach in Done ablegen“.
 - Eine geplante Mail liegt bis zur Sendezeit **nur in der App**. Zur Sendezeit legt die App sie in Outlook als Entwurf an und sendet sie sofort; so bleibt nichts halb fertig in Outlook liegen, und die Mail lässt sich bis zuletzt ändern oder abbrechen.
   **Die App muss zur Sendezeit laufen** (sie startet mit dem Rechner). War sie aus, geht die Mail beim nächsten Start sofort raus. Schlägt das Senden fehl, versucht es die App nach einer Minute bis zu dreimal und zeigt dann den Fehler.
-- Der Knopf **Entwürfe** oben zeigt eine Zahl (Entwürfe plus Geplantes, rot bei einem Fehler) und öffnet die Übersicht. **Geplant:** „Jetzt senden“, „Bearbeiten“ (hebt die Planung bei einer neuen Mail auf und öffnet sie als Entwurf) und der Papierkorb (abbrechen).
+- Der Knopf **Entwürfe** oben zeigt eine Zahl (Entwürfe plus Geplantes, rot bei einem Fehler) und öffnet die Übersicht. **Geplant:** „Jetzt senden“, „Bearbeiten“ (hebt die Planung bei einer neuen Mail auf und öffnet sie als Entwurf) und der Papierkorb (abbrechen). Die gerade geöffnete Ansicht (Neue Mail, Entwürfe, Kontakte, Lernen) ist in der Kopfzeile hervorgehoben.
   **Entwürfe:** ein Klick öffnet den Entwurf zum Weiterschreiben, der Papierkorb löscht ihn.
 - Bei **Antworten** bleibt das, was du im Feld änderst, erhalten (auch nach dem Neuladen), ohne den erzeugten Entwurf zu überschreiben, damit das Lernen weiter beides vergleichen kann. „Neu erzeugen“ ersetzt deine Änderungen.
 

@@ -21,6 +21,7 @@
     "model": "sonnet",
     "timeoutMs": 180000
   },
+  "speech": { "enabled": true, "model": "large-v3-turbo", "language": "de" },
   "poll": {
     "proposalsSec": 120,
     "archiveSec": 300,

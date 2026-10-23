@@ -6,11 +6,14 @@ import json
 import os
 import sys
 
-model_name = sys.argv[1] if len(sys.argv) > 1 else "small"
+# Aufträge kommen als UTF-8 (auch unter Windows, wo Python sonst die Codepage nimmt)
+sys.stdin.reconfigure(encoding="utf-8")
+
+model_name = sys.argv[1] if len(sys.argv) > 1 else "large-v3-turbo"
 language = sys.argv[2] if len(sys.argv) > 2 else "de"
 threads = int(sys.argv[3]) if len(sys.argv) > 3 else max(2, (os.cpu_count() or 4) // 2)
 
-# Satzzeichen und Schreibweise orientieren sich an diesem Beispiel (Whisper übernimmt den Stil des Anfangstexts)
+# Ersatz, falls der Auftrag keinen Anfangstext mitbringt (lib/speech.js sendet ihn); Whisper übernimmt von ihm Stil und Satzzeichen
 PROMPT = "Hallo Anna, vielen Dank für deine Nachricht. Ich melde mich morgen wegen der Rechnung, Schaden-Nr. 2026-0815."
 
 try:
@@ -26,8 +29,9 @@ for line in sys.stdin:
     line = line.strip()
     if not line:
         continue
-    req = json.loads(line)
+    req = {}
     try:
+        req = json.loads(line)
         segments, _info = model.transcribe(
             req["file"],
             language=language,

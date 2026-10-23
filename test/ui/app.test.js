@@ -492,6 +492,8 @@ test('Entwürfe und Geplantes: Liste, Entwurf öffnen, löschen, Planung abbrech
   $('outbox-link').click();
   await tick(80);
   assert.equal(document.querySelector('#detail .outbox h2').textContent, 'Entwürfe und Geplantes');
+  const current = () => ['compose-link', 'outbox-link', 'contacts-link', 'learn-link'].filter((id) => $(id).getAttribute('aria-current') === 'page');
+  assert.deepEqual(current(), ['outbox-link'], 'die offene Ansicht ist in der Kopfzeile markiert');
   const rows = [...document.querySelectorAll('#detail .ob-row')];
   assert.equal(rows.length, 3);
   assert.match(rows[0].textContent, /Erinnerung|Rechnung prüfen/);
@@ -510,5 +512,6 @@ test('Entwürfe und Geplantes: Liste, Entwurf öffnen, löschen, Planung abbrech
   assert.equal(document.querySelectorAll('#detail .ob-row').length, 1);
   [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
   await tick(60);
+  assert.deepEqual(current(), [], 'nach Zurück ist nichts markiert');
   assert.ok(!document.querySelector('#detail .outbox'));
 });

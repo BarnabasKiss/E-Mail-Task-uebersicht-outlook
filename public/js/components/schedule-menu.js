@@ -44,12 +44,21 @@ export function createScheduleMenu({ onPick, withDone = false, now = () => new D
     pop.hidden = true;
     toggle.setAttribute('aria-expanded', 'false');
   }
-  document.addEventListener('click', (e) => {
+  // Listener am document räumen sich selbst auf, sobald das Menü aus der Seite verschwunden ist
+  const onClick = (e) => {
+    if (!node.isConnected) return forget();
     if (!pop.hidden && !node.contains(e.target)) close();
-  });
-  document.addEventListener('keydown', (e) => {
+  };
+  const onKey = (e) => {
+    if (!node.isConnected) return forget();
     if (e.key === 'Escape') close();
-  });
+  };
+  const forget = () => {
+    document.removeEventListener('click', onClick);
+    document.removeEventListener('keydown', onKey);
+  };
+  document.addEventListener('click', onClick);
+  document.addEventListener('keydown', onKey);
 
   return {
     node,

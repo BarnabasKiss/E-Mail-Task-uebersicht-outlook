@@ -92,3 +92,10 @@ test('Leerlauf: der Arbeitsprozess beendet sich von selbst und startet beim näc
 test('Standard-Pfad der Python-Umgebung im Datenordner', () => {
   assert.match(defaultPython('/daten'), /speech-venv[\\/](bin[\\/]python|Scripts[\\/]python\.exe)$/);
 });
+
+test('Anfangstext des Modells (Prompt) und Trainingsfloskeln werden nicht als Diktat übernommen', () => {
+  assert.equal(cleanTranscript('Hallo Anna, vielen Dank für deine Nachricht.'), '');
+  assert.equal(cleanTranscript('Ich melde mich morgen wegen der Rechnung'), '');
+  assert.equal(cleanTranscript('Ich melde mich morgen wegen der Rechnung und dem Termin am Freitag.'), 'Ich melde mich morgen wegen der Rechnung und dem Termin am Freitag.');
+  assert.equal(cleanTranscript('Ja.'), 'Ja.', 'kurze echte Sätze bleiben');
+});

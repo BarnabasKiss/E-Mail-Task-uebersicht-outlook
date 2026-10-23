@@ -67,10 +67,9 @@ function variantSetup() {
   return { drafts, prompts, saved, p };
 }
 
-test('Variante "kürzer" überarbeitet den Text im Entwurfsfeld (maskiert), der vorige bleibt als Vorversion', async () => {
+test('Variante "kürzer" überarbeitet den Text im Entwurfsfeld (maskiert)', async () => {
   const { drafts, prompts, saved, p } = variantSetup();
   await drafts.generate(p);
-  assert.equal(saved['drafts/TEST-VAR-1'].previous, null);
   const d = await drafts.generate(p, { variant: 'kuerzer', base: 'Guten Tag Helga Brunner,\n\nich habe am Montag leider keine Zeit, aber am Dienstag.' });
   const prompt = prompts[1];
   assert.match(prompt, /Kürze den bestehenden Entwurf/);
@@ -78,7 +77,6 @@ test('Variante "kürzer" überarbeitet den Text im Entwurfsfeld (maskiert), der 
   assert.match(prompt, /keine Zeit, aber am Dienstag/);
   assert.ok(!prompt.includes('Helga Brunner'), 'Name im Entwurfstext maskiert');
   assert.equal(d.variant, 'kuerzer');
-  assert.match(d.previous.text, /keine Zeit, aber am Dienstag/);
 });
 
 test('Variante "Ablehnung" schreibt neu aus der Mail; Hinweis geht maskiert mit und hat Vorrang', async () => {

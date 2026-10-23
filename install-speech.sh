@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Richtet die lokale Spracherkennung für das Diktieren ein (faster-whisper, läuft ohne Netz und ohne Grafikkarte).
-# Legt eine eigene Python-Umgebung im Datenordner der App an und lädt das Modell einmalig herunter (small: etwa 460 MB).
-# Aufruf: ./install-speech.sh [modell]    Modelle: tiny, base, small (Standard), medium, large-v3-turbo. Größer = genauer und langsamer.
+# Legt eine eigene Python-Umgebung im Datenordner der App an und lädt das Modell einmalig herunter (large-v3-turbo: etwa 1,6 GB).
+# Aufruf: ./install-speech.sh [modell]    Modelle: tiny, base, small, medium, large-v3-turbo (Standard). Größer = genauer und langsamer.
 set -euo pipefail
 dir="$(cd "$(dirname "$0")" && pwd)"
-model="${1:-small}"
+model="${1:-large-v3-turbo}"
 data="$(cd "$dir" && node --input-type=module -e "import { loadConfig } from './lib/config.js'; console.log(loadConfig().dataDir)")"
 venv="$data/speech-venv"
 echo "Datenordner: $data"

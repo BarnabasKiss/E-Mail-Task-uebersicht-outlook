@@ -38,9 +38,9 @@ Lokale Spracherkennung (siehe `install-speech.sh`). Alle Felder optional.
 | Schlüssel | Bedeutung | Standard |
 |---|---|---|
 | `speech.enabled` | `false` schaltet die lokale Erkennung ab | an |
-| `speech.model` | Whisper-Modell (`small`, `medium`, `large-v3` …) | `small` |
+| `speech.model` | Whisper-Modell (`small` schneller, `large-v3-turbo` genauer, `medium`, `large-v3` …) | `large-v3-turbo` |
 | `speech.language` | Sprache der Erkennung | `de` |
-| `speech.python` | Python des venv | `<Datenordner>/speech-venv/bin/python` |
+| `speech.python` | Python der Umgebung | `<Datenordner>/speech-venv/bin/python` (Windows: `Scripts/python.exe`) |
 
 ## Anhänge, Bilder, Suche (`attachments`)
 

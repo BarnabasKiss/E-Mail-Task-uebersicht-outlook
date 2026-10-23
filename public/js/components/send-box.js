@@ -40,7 +40,18 @@ export function createSendBox({ isTest = false, reply, getText, ownSignature, su
   const sendDoneBtn = el('button', { class: 'btn', type: 'button', title: 'Senden und die Mail gleich in Done ablegen', onclick: () => doSend({ done: true }) }, icon('archive', 15), el('span', {}, 'Senden & Done'));
   const undoBar = el('div', { class: 'send-undo', hidden: true });
   const warnBox = el('div', { class: 'warn-box', hidden: true, role: 'alert' });
-  const warnOk = () => (check ? confirmWarnings(warnBox, () => check({ text: getText().trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() })) : true);
+  // während die Hinweise offen sind, ist alles gesperrt: die Bestätigung gilt dann für genau diese Mail
+  const warnOk = async () => {
+    if (!check) return true;
+    busy = true;
+    update();
+    try {
+      return await confirmWarnings(warnBox, () => check({ text: getText().trim(), to: to.get(), cc: cc.get(), bcc: bcc.get() }));
+    } finally {
+      busy = false;
+      update();
+    }
+  };
   const planner = createScheduleMenu({ withDone: true, onPick: (iso, o) => doSchedule(iso, o) });
   let busy = false;
   let countdown = null;

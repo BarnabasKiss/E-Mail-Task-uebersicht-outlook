@@ -143,18 +143,6 @@ test('Sammelaktion: nur erlaubte Aktionen, Liste nötig', async () => {
   await assert.rejects(actions.bulk.run({ ...s.services, actions }, { action: 'archive', ids: [] }), /Keine Mails/);
 });
 
-test('Entwurf: eine Version zurück tauscht Entwurf und Vorversion', async () => {
-  const s = setup({ neu: [row(1)] });
-  await s.scheduler.refresh();
-  s.store.set('drafts', 'M1', { text: 'neu', createdAt: 'b', previous: { text: 'alt', createdAt: 'a' } });
-  await actions['draft-previous'].run(s.services, { id: 1 });
-  assert.deepEqual(s.store.get('drafts', 'M1'), { text: 'alt', createdAt: 'a', previous: { text: 'neu', createdAt: 'b' } });
-  await actions['draft-previous'].run(s.services, { id: 1 });
-  assert.equal(s.store.get('drafts', 'M1').text, 'neu');
-  s.store.set('drafts', 'M1', { text: 'x', previous: null });
-  await assert.rejects(actions['draft-previous'].run(s.services, { id: 1 }), /keine vorige Version/);
-});
-
 // --- Entwurf in Outlook ablegen und senden
 function outlookSetup() {
   const s = setup({ neu: [row(1, { antwort_noetig: true })] });

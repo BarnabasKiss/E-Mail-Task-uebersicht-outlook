@@ -16,7 +16,7 @@ const mailData = (o = {}) => ({
   receivedDateTime: '2026-10-23T07:00:00Z', text: 'Hallo Barni,\n\nsiehe Bild.\n\nLg Helga',
   masked: { text: 'Hallo Barni,\n\nsiehe Bild.\n\nLg [PERSON_1]', map: { '[PERSON_1]': 'Helga' } }, ...o,
 });
-const NAMES = ['accept', 'archive', 'remove', 'restore', 'snooze', 'reload', 'revertReview', 'regenerate', 'previousDraft'];
+const NAMES = ['accept', 'archive', 'remove', 'restore', 'snooze', 'reload', 'revertReview', 'regenerate'];
 const handlers = () => {
   const calls = [];
   const h = Object.fromEntries(NAMES.map((k) => [k, (...a) => calls.push([k, ...a])]));
@@ -175,7 +175,7 @@ const toolMenus = (root) => [...root.querySelectorAll('.imp-bar .menu-wrap > .bt
 const withImprove = { improve: async (o) => ({ text: `${o.text} [${o.mode}]` }) };
 
 test('Entwurf: Aufbau (Hinweis über dem Text, Werkzeugleiste darunter), kein Statustext, Ablehnung und Neu erzeugen laufen über regenerate', opts, async () => {
-  const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: 'kuerzer', previous: { text: 'alt' } } };
+  const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: 'kuerzer' } };
   const { box, calls } = await render(withDraft, { extra: withImprove });
   assert.equal(box.querySelector('.draft-status').textContent, '', 'kein "Bereit. Änderungen hier werden nicht gespeichert."');
   assert.equal(box.querySelector('.draft-tools'), null, 'keine Variantenknöpfe mehr');
@@ -202,7 +202,7 @@ test('Entwurf: Aufbau (Hinweis über dem Text, Werkzeugleiste darunter), kein St
 });
 
 test('Entwurf: ohne Text im Feld ist nur Ablehnung (und Neu erzeugen) möglich', opts, async () => {
-  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: '', previous: null } }, { extra: withImprove });
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: '' } }, { extra: withImprove });
   assert.ok(menuItem(box, 'Kürzer').disabled && menuItem(box, 'Ins Englische').disabled && menuItem(box, 'Rechtschreibung').disabled);
   assert.ok(!menuItem(box, 'Ablehnung').disabled);
 });
@@ -292,7 +292,7 @@ test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt si
 });
 
 test('Aufbau in einer Spalte: Person, Anhänge, Aufgabe, Zusammenfassung, Verlauf, Antwortentwurf', opts, async () => {
-  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo', previous: null } });
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo' } });
   const article = box.querySelector('article.detail');
   assert.equal(box.querySelector('.d-main, .d-left, .d-right'), null, 'keine zweite Spalte');
   const labels = [...article.children].map((c) => c.getAttribute('aria-label')).filter(Boolean);
@@ -324,7 +324,7 @@ test('Anonymisierung mit dem Verlauf: das Auge ersetzt den Verlauf durch die mas
 });
 
 const reply = (o = {}) => ({ sender: 'helga@partner.at', only: { to: ['helga@partner.at'], cc: [] }, all: { to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] }, draft: null, ...o });
-const draftData = (r) => ({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo Helga,\n\nTermin passt.', previous: null }, reply: r });
+const draftData = (r) => ({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo Helga,\n\nTermin passt.' }, reply: r });
 
 test('Senden: Empfänger vorbelegt, "Allen antworten" tauscht sie, In Outlook ablegen schickt Text, An und CC', opts, async () => {
   const calls = [];
@@ -374,7 +374,7 @@ test('Senden: legt ab, wartet mit Rückgängig, sendet dann; Rückgängig bricht
 
 test('Senden: gesperrt bei offenen Platzhaltern und ohne Empfänger; bei Testmails mit Hinweis auf den Testmodus', opts, async () => {
   const extra = { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} };
-  const withPlaceholder = { ...draftData(reply()), draft: { text: 'Termin: [BITTE ERGÄNZEN: Datum]', previous: null } };
+  const withPlaceholder = { ...draftData(reply()), draft: { text: 'Termin: [BITTE ERGÄNZEN: Datum]' } };
   const a = (await render(withPlaceholder, { extra })).box;
   const send = (b) => [...b.querySelectorAll('.send-actions .btn')].find((x) => x.textContent.trim() === 'Senden');
   assert.ok(send(a).disabled);
@@ -855,6 +855,41 @@ test('Diktieren (lokal): Fehler beim Erkennen und beim Mikrofon erscheinen verst
   assert.match(denied.node.textContent, /Diktieren/);
 });
 
+test('Diktieren (lokal): "Stopp" während des Mikrofon-Dialogs beendet die Aufnahme sofort; ein Fehler beim letzten Abschnitt bleibt sichtbar', opts, async () => {
+  const { createDictation } = await importApp('components/dictation.js');
+  resetBody();
+  const ta = document.createElement('textarea');
+  const hint = document.createElement('span');
+  document.body.append(ta, hint);
+  let release;
+  let stops = 0;
+  const gate = new Promise((r) => (release = r));
+  const deps = { speechStatus: async () => ({ available: true }), transcribe: async () => { throw new Error('Python abgestürzt'); }, startRecorder: async () => (await gate, { stop: async () => { stops += 1; } }) };
+  const d = createDictation({ textarea: ta, hint, win: { Event: w.Event }, deps });
+  document.body.append(d.node);
+  d.node.click();
+  await tick(10);
+  d.node.click(); // Stopp, solange der Browser noch auf die Mikrofon-Erlaubnis wartet
+  assert.match(d.node.textContent, /Diktieren/);
+  release();
+  await tick(10);
+  assert.equal(stops, 1, 'die spät gestartete Aufnahme wird gleich wieder beendet');
+  assert.match(d.node.textContent, /Diktieren/);
+
+  let onSegment;
+  let alive;
+  const again = createDictation({ textarea: ta, hint, win: { Event: w.Event }, deps: { ...deps, startRecorder: async (o) => ((onSegment = o.onSegment), (alive = o.alive), { stop: async () => { await onSegment({ id: 'x' }); } }) } });
+  document.body.append(again.node);
+  again.node.click();
+  await tick(10);
+  assert.equal(alive(), true);
+  again.node.click();
+  await tick(30);
+  assert.match(hint.textContent, /Python abgestürzt/);
+  again.node.remove();
+  assert.equal(alive(), false, 'verschwindet das Feld, meldet sich die Aufnahme als überflüssig');
+});
+
 test('Diktieren: ohne lokale Erkennung und ohne Browser-Erkennung (Brave) erklärt der Hinweis die Einrichtung', opts, async () => {
   const { createDictation } = await importApp('components/dictation.js');
   resetBody();
@@ -902,7 +937,7 @@ test('Antwort: Verbessern (mit Kontext der Mail), Rückgängig und gemerkte Änd
 });
 
 test('Antwort: geänderter Text wird beim erneuten Öffnen wiederhergestellt', opts, async () => {
-  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Erzeugt', edited: 'Von dir geändert', previous: null }, reply: reply() }, { extra: { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
+  const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Erzeugt', edited: 'Von dir geändert' }, reply: reply() }, { extra: { outlookDraft: async () => ({}), outlookSend: async () => true, outlookDraftDelete: async () => {} } });
   assert.equal(box.querySelector('.draft-text').value, 'Von dir geändert');
 });
 
