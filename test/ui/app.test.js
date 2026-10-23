@@ -26,6 +26,9 @@ const outboxData = {
   ],
 };
 let outboxCall = null;
+let rulesList = ['Anrede kurz und österreichisch.', 'Keine Signatur schreiben.'];
+let rulesCall = null;
+const rulesDoc = () => ({ file: '/x/Mail-Regeln.md', version: 'v1', text: '# Regeln', title: 'Regeln', intro: ['Diese Datei steuert die App.'], sections: [{ heading: 'Grundton', level: 2, hints: ['Stil für Entwürfe.'], rules: rulesList.map((text, index) => ({ index, text })) }, { heading: 'Gelernt', level: 2, hints: [], rules: [] }] });
 let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
 let bookCall = null;
 let learnStatus = { running: false, phase: 'idle', read: 0, usable: 0, people: 0, error: null, result: null };
@@ -40,6 +43,16 @@ globalThis.fetch = async (url, init = {}) => {
   const byId = (id) => all.find((m) => String(m.id) === String(id));
   if (p === '/api/proposals' || p === '/api/refresh') return json({ items: db.items, archive: db.archive, hidden: 0, ownAddress: 'barni@firma.at' });
   if (p === '/api/status') return json({ fetchedAt: new Date().toISOString(), error: null, claudeBusy: false, rulesFile: '/x/Mail-Regeln.md', outbox: { drafts: outboxData.drafts.length, scheduled: outboxData.scheduled.length, failed: outboxData.scheduled.filter((x) => x.status === 'fehler').length } });
+  if (p === '/api/rules') return json(rulesDoc());
+  if (p === '/api/actions/rules') {
+    const b = JSON.parse(init.body);
+    rulesCall = b;
+    if (b.op === 'edit' && b.was !== rulesList[b.index]) return json({ error: 'Die Regel wurde inzwischen geändert.' }, 409);
+    if (b.op === 'edit') rulesList[b.index] = b.text;
+    if (b.op === 'add') rulesList.push(b.text);
+    if (b.op === 'delete') rulesList.splice(b.index, 1);
+    return json(rulesDoc());
+  }
   if (p === '/api/outbox') return json(outboxData);
   if (p === '/api/search') return json({ hits: u.searchParams.get('q') === 'rechnung' ? { M3: [{ kind: 'doc', name: 'Rechnung.pdf', snippet: '…Rechnung 4711…' }] } : {}, indexed: 1, total: 4 });
   let m = /^\/api\/proposals\/(\d+)\/attachments$/.exec(p);
@@ -487,12 +500,58 @@ test('Kopfzeile: Symbole an den Knöpfen und Zähler am Knopf "Entwürfe" (rot b
   assert.ok(badge.classList.contains('bad'), 'ein geplanter Versand ist fehlgeschlagen');
 });
 
+test('Optionen: ein Menü mit Kontakte, Lernen und Regeln; die offene Ansicht markiert Menü und Eintrag', opts, async () => {
+  assert.equal($('options-menu').hidden, true);
+  $('options-link').click();
+  assert.equal($('options-menu').hidden, false);
+  assert.deepEqual([...$('options-menu').querySelectorAll('.menu-item')].map((b) => b.textContent.trim()), ['Kontakte', 'Lernen', 'Regeln']);
+  $('rules-link').click();
+  await tick(80);
+  assert.equal($('options-menu').hidden, true, 'schließt nach der Wahl');
+  assert.equal($('options-link').getAttribute('aria-current'), 'page');
+  assert.equal($('rules-link').getAttribute('aria-current'), 'page');
+  assert.equal(document.querySelector('#detail .rules h2').textContent, 'Regeln');
+  assert.deepEqual([...document.querySelectorAll('#detail .rl-section h3')].map((h) => h.firstChild.textContent), ['Grundton', 'Gelernt']);
+});
+
+test('Regeln bearbeiten: ändern, hinzufügen, löschen; ein Konflikt lädt neu; ganze Datei als Text', opts, async () => {
+  const area = () => document.querySelectorAll('#detail .rl-text');
+  assert.equal(area().length, 2);
+  area()[0].value = 'Anrede locker.';
+  area()[0].dispatchEvent(new w.Event('change'));
+  await tick(60);
+  assert.deepEqual(rulesCall, { op: 'edit', section: 'Grundton', index: 0, was: 'Anrede kurz und österreichisch.', text: 'Anrede locker.' });
+  assert.equal(area()[0].value, 'Anrede locker.');
+  assert.match(document.querySelector('#detail .ct-note').textContent, /Regel geändert/);
+  const input = document.querySelector('.rl-section[data-section="Gelernt"] .rl-new');
+  input.value = 'Immer Du bei Kollegen.';
+  input.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await tick(60);
+  assert.deepEqual(rulesCall, { op: 'add', section: 'Gelernt', text: 'Immer Du bei Kollegen.' });
+  document.querySelectorAll('#detail .rl-row .icon-btn.danger')[0].click();
+  await tick(60);
+  assert.equal(rulesCall.op, 'delete');
+  assert.equal(area().length, 2, 'eine gelöscht, eine hinzugefügt');
+  // Konflikt: die Datei hat sich inzwischen geändert
+  rulesList[0] = 'heimlich geändert';
+  area()[0].value = 'Mein Text';
+  area()[0].dispatchEvent(new w.Event('change'));
+  await tick(80);
+  assert.equal(area()[0].value, 'heimlich geändert', 'neu geladen statt überschrieben');
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Ganzen Text')).click();
+  await tick(60);
+  assert.ok(document.querySelector('#detail .rl-all'));
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
+  assert.equal($('rules-link').getAttribute('aria-current'), null);
+});
+
 test('Entwürfe und Geplantes: Liste, Entwurf öffnen, löschen, Planung abbrechen, sofort senden', opts, async () => {
   globalThis.confirm = () => true;
   $('outbox-link').click();
   await tick(80);
   assert.equal(document.querySelector('#detail .outbox h2').textContent, 'Entwürfe und Geplantes');
-  const current = () => ['compose-link', 'outbox-link', 'contacts-link', 'learn-link'].filter((id) => $(id).getAttribute('aria-current') === 'page');
+  const current = () => ['compose-link', 'outbox-link', 'contacts-link', 'learn-link', 'rules-link', 'options-link'].filter((id) => $(id).getAttribute('aria-current') === 'page');
   assert.deepEqual(current(), ['outbox-link'], 'die offene Ansicht ist in der Kopfzeile markiert');
   const rows = [...document.querySelectorAll('#detail .ob-row')];
   assert.equal(rows.length, 3);

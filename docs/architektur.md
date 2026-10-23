@@ -80,7 +80,7 @@ public/                 Oberfläche
     components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
                         mark-bar, profile, memory-panel, learn-panel, contacts-view (Adressbuch), thread (Verlauf),
                         send-box (Empfänger, Ablegen, Senden), recipient-field (Chips und Vorschläge), compose-view (neue Mail), outbox-view (Entwürfe, Geplantes),
-                        improve-bar (Werkzeugleiste mit Versionsliste), tool-menu (Aufklappliste), send-warn (Warnungen vor dem Senden),
+                        improve-bar (Werkzeugleiste mit Versionsliste), rules-view (Regeldatei bearbeiten), tool-menu (Aufklappliste), send-warn (Warnungen vor dem Senden),
                         dictation (Spracheingabe), schedule-menu (Senden planen);
                         recorder.js, recorder-logic.js (Mikrofonaufnahme, Schnitt an Sprechpausen),                         countdown.js (30 Sekunden vor dem Senden), dictation-text.js (Sprachbefehle)
 tools/stt-worker.py      Python-Worker der Spracherkennung (faster-whisper), Zeilenprotokoll über stdin/stdout
@@ -113,7 +113,8 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
 | `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `contact`, `history-learn`, `outlook-draft`, `outlook-draft-delete`, `outlook-send`, `book`, `compose-draft`, `compose-send`, `compose-discard`, `text-improve`, `text-subject`, `send-check`, `mail-draft-save`, `mail-draft-delete`, `schedule`, `schedule-cancel`, `schedule-now`, `reply-edit` |
-| `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
+| `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei im Standardprogramm öffnen, Zustand |
+| `GET /rules` | Regeldatei als Dokument (Abschnitte, Regeln, Version); ändern: Aktion `rules` (`add`, `edit`, `delete`, `save-text`) |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
 | `GET /proposals/:id/thread?before=&limit=` | Nachrichten des Verlaufs, neueste zuerst, seitenweise (`hasMore`, `nextBefore`) |
 | `GET /outbox` | App-Entwürfe, geplante Mails und Zähler |

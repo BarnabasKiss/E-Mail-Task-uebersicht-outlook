@@ -35,5 +35,8 @@ export const api = {
   match: (id, force = false) => request('POST', `/api/proposals/${id}/match${force ? '?force=1' : ''}`, {}),
   action: (name, payload) => request('POST', `/api/actions/${name}`, payload),
   status: () => request('GET', '/api/status'),
+  rules: () => request('GET', '/api/rules'),
+  /** Regeln ändern; Antwort ist das aktuelle Dokument. op: add | edit | delete | save-text */
+  editRules: (payload) => request('POST', '/api/actions/rules', payload),
   openRules: () => request('POST', '/api/open-rules', {}),
 };

@@ -75,8 +75,8 @@ Lokale Spracherkennung (siehe `install-speech.sh`). Alle Felder optional.
 Die Oberfläche selbst lädt die Liste alle 30 Sekunden neu (siehe `public/js/main.js`).
 
 ## Regeldatei `Mail-Regeln.md`
-Liegt im App-Ordner, nicht im Vault und nicht im Repo. Der Knopf „Regeln“ oben rechts öffnet sie mit dem Standardprogramm für `.md`.
-Du pflegst sie selbst, die App hängt nur Zeilen an. Abschnitte:
+Liegt im App-Ordner, nicht im Vault und nicht im Repo. **Optionen ▾ → Regeln** bearbeitet sie direkt in der App (siehe [Bedienung](bedienung.md#regeln-die-regeldatei-in-der-app)); „In Editor öffnen“ nimmt das Standardprogramm für `.md`.
+Du pflegst sie selbst, die App und das Lernen hängen Zeilen an. Abschnitte:
 - **Grundton und Formulierungen**: Stil der Antwortentwürfe.
 - **Regeln pro Kontakt oder Firma**: besondere Anreden oder Vorgaben.
 - **Dringlichkeit und Ignorieren**: Absender (oder Domains), die immer „Jetzt“ oder „Heute“ sind oder ausgeblendet werden. „Done“ mit

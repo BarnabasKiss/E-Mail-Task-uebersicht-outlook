@@ -115,8 +115,18 @@ Eine Leiste unter dem Text jeder Antwort und jeder neuen Mail: **Diktieren | Ums
   **Entwürfe:** ein Klick öffnet den Entwurf zum Weiterschreiben, der Papierkorb löscht ihn.
 - Bei **Antworten** bleibt das, was du im Feld änderst, erhalten (auch nach dem Neuladen), ohne den erzeugten Entwurf zu überschreiben, damit das Lernen weiter beides vergleichen kann. „Neu erzeugen“ ersetzt deine Änderungen.
 
+## Optionen: Kontakte, Lernen, Regeln
+Das Menü **Optionen ▾** oben rechts fasst **Kontakte**, **Lernen** und **Regeln** zusammen. Der Eintrag der gerade offenen Ansicht ist hervorgehoben.
+
+## Regeln: die Regeldatei in der App
+**Optionen → Regeln** zeigt `Mail-Regeln.md` als Liste, je Abschnitt eine Karte (Grundton, Regeln pro Kontakt, Dringlichkeit, Gelerntes, aus gesendeten Mails abgeleitet).
+- **Ändern:** in die Regel klicken, Text ändern, Enter oder Klick daneben speichert (Esc verwirft). **Löschen:** Papierkorb. **Neu:** Feld am Ende der Karte, Enter oder „Hinzufügen“.
+- **Ganzen Text bearbeiten** zeigt die ganze Datei in einem Feld (Überschriften `##` sind die Abschnitte, Regeln sind Zeilen mit `- `). **In Editor öffnen** nimmt das Standardprogramm.
+- Hat sich die Datei seit dem Laden geändert (etwa durch das Lernen), überschreibt die App nichts: sie meldet es und lädt die Liste neu.
+- Schreibe keine Klarnamen oder Kundendaten hinein; der Inhalt geht als Kontext an Claude.
+
 ## Kontakte: das Adressbuch
-Der Link **Kontakte** oben rechts öffnet das Adressbuch der App. Es liefert die Vorschläge bei An, CC und BCC und liegt nur auf diesem Rechner (`address-book.json` im Datenordner).
+**Optionen → Kontakte** öffnet das Adressbuch der App. Es liefert die Vorschläge bei An, CC und BCC und liegt nur auf diesem Rechner (`address-book.json` im Datenordner).
 - **Es füllt sich von selbst** aus deinen Mails: Absender, An und CC der Mails in der Übersicht (sobald der Suchindex sie gelesen hat), alle Teilnehmer der Verläufe, die du öffnest, und die Empfänger deiner gesendeten Mails.
   Alles Eigene fehlt. Wem du geschrieben hast, steht in den Vorschlägen weiter oben, ebenso Neueres und Häufigeres; automatische Absender (noreply …) kommen ans Ende.
 - **Aus gesendeten Mails übernehmen** liest die Empfänger aller erreichbaren gesendeten Mails auf einmal (ohne Claude). **Aus Outlook übernehmen** holt deine persönlichen Outlook-Kontakte
@@ -159,7 +169,7 @@ Das Gedächtnis fließt in jeden Entwurf ein (Ansprache, Sprache, Notizen) und s
 Mehr zum Datenschutz: [Absender-Gedächtnis](datenschutz.md#absender-gedächtnis-und-lernen-aus-gesendetem).
 
 ## Aus gesendeten Mails lernen
-Der Knopf **Lernen** oben rechts liest deine gesendeten Mails (über n8n, nur lesend; neueste zuerst, Standard 200) und leitet daraus Regeln ab:
+**Optionen → Lernen** liest deine gesendeten Mails (über n8n, nur lesend; neueste zuerst, Standard 200) und leitet daraus Regeln ab:
 Ansprache, Anrede, Gruß und Sprache je Empfänger lokal, dazu allgemeine Stilregeln und Notizen je Person über Claude mit anonymisierten Auszügen.
 Das Ergebnis prüfst du danach: allgemeine Regeln stehen in `Mail-Regeln.md` im Abschnitt „Aus gesendeten Mails abgeleitet (bitte prüfen)“, Notizen im Absender-Profil
 als „prüfen“. Jede Mail zählt nur einmal, ein zweiter Lauf ist harmlos. Das Lernen läuft im Hintergrund; je nach Zahl der Personen dauert es einige Minuten.

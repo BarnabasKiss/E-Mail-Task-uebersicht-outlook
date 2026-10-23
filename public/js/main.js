@@ -7,6 +7,7 @@ import { TABS, renderTabs, renderList, withoutCollapsed } from './components/lis
 import { renderDetail, renderLoading, renderEmpty } from './components/detail.js';
 import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
+import { renderRules } from './components/rules-view.js';
 import { renderContacts } from './components/contacts-view.js';
 import { renderCompose } from './components/compose-view.js';
 import { renderOutbox } from './components/outbox-view.js';
@@ -21,7 +22,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, compose: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -53,7 +54,8 @@ const attention = createAttentionSignal({ onOpen: (id) => showItem(id) });
 
 // Kopfzeile: welche Ansicht gerade offen ist (Neue Mail, Entwürfe, Kontakte, Lernen), gemerkt über aria-current
 function syncNav() {
-  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning };
+  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning, 'rules-link': !!state.rules };
+  open['options-link'] = open['contacts-link'] || open['learn-link'] || open['rules-link'];
   for (const [id, on] of Object.entries(open)) {
     if (on) $(id).setAttribute('aria-current', 'page');
     else $(id).removeAttribute('aria-current');
@@ -128,7 +130,7 @@ async function loadList(fn = api.proposals) {
 
 function clearDetail() {
   stopLearnPolling();
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.rules = null;
   state.selectedId = null;
   state.profile = null;
   state.controller = null;
@@ -304,7 +306,7 @@ async function openCompose(prefill = {}) {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.rules = null;
   const info = await api.composeInfo().catch(() => ({ signature: '' }));
   const handle = { view: null };
   state.compose = handle;
@@ -388,7 +390,7 @@ function openOutbox() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = null;
+  state.contacts = state.rules = null;
   state.outbox = { note: '' };
   syncNav();
   showOutbox('');
@@ -406,7 +408,7 @@ async function select(id, { keepView = true } = {}) {
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.rules = null;
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
@@ -502,7 +504,7 @@ async function refreshDraft(id) {
 async function openProfile(address) {
   if (!address || !leaveCompose()) return;
   state.learning = false;
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.rules = null;
   stopLearnPolling();
   state.profile = String(address).toLowerCase();
   state.profileTab = 'mails';
@@ -586,7 +588,7 @@ async function showLearn() {
 function openLearn() {
   if (!leaveCompose()) return;
   state.profile = null;
-  state.contacts = state.outbox = null;
+  state.contacts = state.outbox = state.rules = null;
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
@@ -649,13 +651,76 @@ function openContacts() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
+  state.rules = null;
   state.contacts = { q: '', source: '', limit: 200, note: '' };
   syncNav();
   showContacts('');
 }
 
 function closeContacts() {
+  state.contacts = state.outbox = state.rules = null;
+  if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+  else clearDetail();
+}
+
+// --- Regeln (Regeldatei bearbeiten): Ansicht statt Detail
+async function showRules(note = state.rules?.note || '') {
+  const r = state.rules;
+  if (!r) return;
+  let doc = r.doc;
+  if (!doc || r.reload) {
+    try {
+      doc = await api.rules();
+    } catch (e) {
+      toast(e.message, { error: true });
+      return closeRules();
+    }
+    if (state.rules !== r) return; // inzwischen etwas anderes geöffnet
+    r.doc = doc;
+    r.reload = false;
+  }
+  r.note = note;
+  // Jede Änderung antwortet mit dem neuen Dokument; bei einem Konflikt (Datei inzwischen geändert) wird neu geladen
+  const change = async (payload, text) => {
+    try {
+      r.doc = await api.editRules(payload);
+      if (payload.op === 'save-text') r.text = false;
+      return showRules(text);
+    } catch (e) {
+      toast(e.message, { error: true });
+      r.reload = true;
+      return showRules(`${e.message}`);
+    }
+  };
+  renderRules($('detail'), doc, { text: r.text }, {
+    back: closeRules,
+    setText: (on) => {
+      r.text = on;
+      return showRules('');
+    },
+    add: (section, text) => change({ op: 'add', section, text }, 'Regel hinzugefügt.'),
+    edit: (section, index, was, text) => change({ op: 'edit', section, index, was, text }, 'Regel geändert.'),
+    remove: (section, index, was) => change({ op: 'delete', section, index, was }, 'Regel gelöscht.'),
+    saveText: (text, version) => change({ op: 'save-text', text, version }, 'Datei gespeichert.'),
+    openExternal: () => api.openRules().catch((err) => toast(err.message, { error: true })),
+  }, note);
+}
+
+function openRules() {
+  if (!leaveCompose()) return;
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
   state.contacts = state.outbox = null;
+  state.rules = { doc: null, text: false, note: '', reload: false };
+  syncNav();
+  showRules('');
+}
+
+function closeRules() {
+  state.rules = null;
   if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
   else clearDetail();
 }
@@ -663,18 +728,24 @@ function closeContacts() {
 // --- Kopfzeile
 $('compose-link').addEventListener('click', () => openCompose());
 $('outbox-link').addEventListener('click', openOutbox);
-$('contacts-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  openContacts();
-});
-$('learn-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  openLearn();
-});
-$('rules-link').addEventListener('click', (e) => {
-  e.preventDefault();
-  api.openRules().catch((err) => toast(err.message, { error: true }));
-});
+$('contacts-link').addEventListener('click', openContacts);
+$('learn-link').addEventListener('click', openLearn);
+$('rules-link').addEventListener('click', openRules);
+
+// Optionen: ein Menü für Kontakte, Lernen und Regeln
+{
+  const toggle = $('options-link');
+  const menu = $('options-menu');
+  toggle.append(icon('chevron', 12));
+  const setOpen = (on) => {
+    menu.hidden = !on;
+    toggle.setAttribute('aria-expanded', String(on));
+  };
+  toggle.addEventListener('click', () => setOpen(menu.hidden));
+  menu.addEventListener('click', () => setOpen(false));
+  document.addEventListener('click', (e) => !menu.hidden && !$('options-wrap').contains(e.target) && setOpen(false));
+  document.addEventListener('keydown', (e) => e.key === 'Escape' && setOpen(false));
+}
 $('refresh').addEventListener('click', async () => {
   const btn = $('refresh');
   btn.disabled = true;

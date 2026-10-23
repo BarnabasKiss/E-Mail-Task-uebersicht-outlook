@@ -16,7 +16,7 @@ export function createStatusBar({ chip, rulesLink, onStatus = () => {} }) {
           s.claudeBusy ? el('span', { class: 'busy' }, el('span', { class: 'spinner' }), 'Claude arbeitet') : null,
         ].filter(Boolean),
       );
-      rulesLink.title = `Regeldatei öffnen: ${s.rulesFile}`;
+      rulesLink.title = `Regeln bearbeiten (Datei: ${s.rulesFile})`;
     } catch {
       chip.className = 'status error';
       chip.replaceChildren(icon('alert', 14), el('span', {}, 'Die App ist nicht erreichbar.'));

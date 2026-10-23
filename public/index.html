@@ -17,9 +17,14 @@
     <span class="spacer"></span>
     <button id="compose-link" class="btn primary" type="button" data-icon="pencil" title="Neue Mail schreiben und senden">Neue Mail</button>
     <button id="outbox-link" class="btn ghost" type="button" data-icon="send" title="Entwürfe und geplante Mails"><span>Entwürfe</span><span id="outbox-badge" class="nav-badge" hidden></span></button>
-    <a id="contacts-link" class="btn ghost" href="#" data-icon="users" title="Adressbuch: Vorschläge bei An, CC und BCC">Kontakte</a>
-    <a id="learn-link" class="btn ghost" href="#" data-icon="lightbulb" title="Aus gesendeten Mails Regeln und Gewohnheiten lernen">Lernen</a>
-    <a id="rules-link" class="btn ghost" href="#" data-icon="book" title="Regeldatei öffnen">Regeln</a>
+    <span class="menu-wrap" id="options-wrap">
+      <button id="options-link" class="btn ghost" type="button" data-icon="sliders" aria-haspopup="menu" aria-expanded="false" title="Kontakte, Lernen und Regeln">Optionen</button>
+      <div id="options-menu" class="menu" role="menu" hidden>
+        <button id="contacts-link" class="menu-item" type="button" role="menuitem" data-icon="users" title="Adressbuch: Vorschläge bei An, CC und BCC">Kontakte</button>
+        <button id="learn-link" class="menu-item" type="button" role="menuitem" data-icon="lightbulb" title="Aus gesendeten Mails Regeln und Gewohnheiten lernen">Lernen</button>
+        <button id="rules-link" class="menu-item" type="button" role="menuitem" data-icon="book" title="Regeln für Entwürfe, Dringlichkeit und Absender bearbeiten">Regeln</button>
+      </div>
+    </span>
     <button id="notify" class="btn ghost icon-only" type="button" hidden></button>
     <button id="refresh" class="btn ghost" type="button" data-icon="refresh" title="Jetzt neu laden">Aktualisieren</button>
   </header>
