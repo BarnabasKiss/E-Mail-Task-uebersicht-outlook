@@ -1,12 +1,21 @@
 // Tastaturkürzel: / = Suche, j/k oder Pfeile = nächste/vorherige Mail, e = in Done ablegen (in Done: zurückholen), Entf = löschen.
+// Esc hebt eine Markierung auf (markiert wird mit Strg + Klick, die Aktionen sind Buttons).
 const TYPING = /^(INPUT|TEXTAREA|SELECT)$/;
 
-/** deps: { searchInput, visibleItems(), selectedId(), findItem(id), select(id, opts), archive(id), restore(id), remove(id) } */
-export function installShortcuts({ searchInput, visibleItems, selectedId, findItem, select, archive, restore, remove }) {
+/**
+ * deps: { searchInput, visibleItems(), selectedId(), findItem(id), select(id, opts), archive(id), restore(id), remove(id),
+ *         bulk: { active(), cancel() } }
+ */
+export function installShortcuts({ searchInput, visibleItems, selectedId, findItem, select, archive, restore, remove, bulk }) {
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const typing = TYPING.test(document.activeElement?.tagName);
     const current = selectedId();
+    if (!typing && e.key === 'Escape' && bulk?.active()) {
+      e.preventDefault();
+      bulk.cancel();
+      return;
+    }
     if (e.key === '/' && !typing) {
       e.preventDefault();
       searchInput.focus();

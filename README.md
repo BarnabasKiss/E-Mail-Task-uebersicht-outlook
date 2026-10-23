@@ -12,11 +12,14 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 
 ## Was die App kann
-- **Posteingang nach Dringlichkeit:** Jetzt, Überfällig, Heute, Diese Woche, dazu Egal, Später und Done. Pro Zeile Tags: Direkt/CC/Shared,
+- **Posteingang nach Dringlichkeit:** Jetzt, Überfällig, Heute, Diese Woche und Egal (zuklappbar), dazu die Reiter Später und Done. Pro Zeile Tags: Direkt/CC/Shared,
   Wichtig, Anhang mit Formaten, Aufgabe, Frist.
 - **Aufgaben und Entwürfe:** Aufgabe mit Überschrift-Vorschlag in die Obsidian-Liste übernehmen, Antwortentwurf im Hintergrund erzeugen
-  (pseudonymisiert), aus deinen gesendeten Antworten Stilregeln lernen.
-- **Suche:** Absender, Betreff, voller Mailtext, Bewertung, Dokumentinhalt und Dokumentnamen; Filter für Von, An/CC, Zeitraum, Anhang, Format,
+  (pseudonymisiert), als Variante (kürzer, förmlicher, freundlicher, Ablehnung) und mit Hinweis neu erzeugen.
+- **Sammelaktionen:** mehrere Mails mit Strg + Klick markieren und per Button gemeinsam in Done legen, zurückstellen, löschen oder ihre Absender ignorieren.
+- **Absender-Gedächtnis und Profil:** Du/Sie, Anrede, Gruß, Sprache und Notizen je Person und Firma, gelernt aus deinen gesendeten Antworten und
+  aus vielen gesendeten Mails auf einmal (anonymisiert), im Absender-Profil prüf- und änderbar.
+- **Suche:** Absender, Betreff, voller Mailtext, Bewertung, Dokumentinhalt (auch gescannte PDFs) und Dokumentnamen; Filter für Von, An/CC, Zeitraum, Anhang, Format,
   Aufgabe, Wichtig und Eingang.
 - **Bilder und Anhänge:** Bilder stehen im Mailtext; Text aus Bildern (OCR) und Anhängen geht nur anonymisiert und geprüft an Claude, und du siehst vorher,
   was gesendet würde.

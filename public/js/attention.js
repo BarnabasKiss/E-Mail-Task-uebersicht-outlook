@@ -1,5 +1,5 @@
 // Was verlangt Aufmerksamkeit? Reine Logik (ohne DOM) für Tab-Symbol, Titel und Systembenachrichtigungen.
-//  offen   = alles im Tab "Offen" (nicht Egal, Später, Done)
+//  offen   = alles im Tab "Offen" ohne die Gruppe Egal (nicht Später, Done)
 //  wichtig = offen und (Jetzt, Überfällig oder mit dem Tag "Wichtig")
 import { isOverdue } from './components/list.js';
 

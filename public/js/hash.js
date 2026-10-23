@@ -5,6 +5,7 @@ export function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   return {
     mail: p.get('mail'),
+    kontakt: p.get('kontakt'),
     view: p.get('view') === 'message' ? 'message' : 'summary',
     tab: p.get('tab'),
     q: p.get('q') || '',
@@ -13,9 +14,10 @@ export function readHash() {
   };
 }
 
-export function writeHash({ selectedId, view, query, filters }) {
+export function writeHash({ selectedId, view, query, filters, profile }) {
   const p = new URLSearchParams();
   if (selectedId) p.set('mail', selectedId);
+  if (profile) p.set('kontakt', profile);
   if (view === 'message') p.set('view', 'message');
   if (query.trim()) p.set('q', query.trim());
   filtersToParams(filters, p);

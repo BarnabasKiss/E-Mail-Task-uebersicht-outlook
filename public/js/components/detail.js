@@ -37,7 +37,7 @@ export function renderDetail(container, data, ctx) {
 
   // Erledigtes hat keine Aufgabe und keinen Entwurf mehr; dafür gibt es "Zurückholen".
   const taskRow = done ? null : createTaskRow({ proposal: p, headings, isTest: p.is_test, onAccept: handlers.accept });
-  const draftPanel = !done && p.antwort_noetig ? createDraftPanel({ draft, error: p.entwurf_fehler, isTest: p.is_test, onRegenerate: handlers.regenerate }) : null;
+  const draftPanel = !done && p.antwort_noetig ? createDraftPanel({ draft, error: p.entwurf_fehler, isTest: p.is_test, onRegenerate: handlers.regenerate, onPrevious: handlers.previousDraft }) : null;
 
   // --- Kopf mit Aktionen oben rechts
   // Nur Symbole mit Tooltip: "In Outlook öffnen" und "Löschen"
@@ -101,7 +101,7 @@ export function renderDetail(container, data, ctx) {
     el(
       'div',
       { class: 'from-line' },
-      avatar(mail.from.name, mail.from.address, 36),
+      el('button', { class: 'avatar-btn', type: 'button', title: 'Absender-Profil öffnen', 'aria-label': 'Absender-Profil öffnen', onclick: () => handlers.openProfile?.(mail.from.address) }, avatar(mail.from.name, mail.from.address, 36)),
       el('div', { class: 'from-text' }, el('strong', {}, mail.from.name || mail.from.address), mail.from.name && el('span', { class: 'addr' }, ` <${mail.from.address}>`), roleChip(p.rolle)),
       el('time', { class: 'from-date' }, formatFull(mail.receivedDateTime)),
     ),

@@ -42,6 +42,6 @@ einige Minuten bis eine Stunde; die Trefferliste zeigt solange „Dokumente und 
 - **Nur lokal.** Nichts davon geht an Claude oder ins Netz. Die Datei enthält echte Inhalte: im Datenordner lassen, nicht in die Cloud legen.
 - Mehrere Wörter müssen im selben Dokument (bzw. im Mailtext) stehen; der Dateiname zählt mit. Ein Treffer nur im Dateinamen hat keinen Ausschnitt.
 - **Grenzen:** pro Dokument die ersten 60.000 Zeichen, Mailtext höchstens 100.000 Zeichen; Anhänge über 25 MB und unbekannte Dateitypen fehlen;
-  gescannte PDFs ohne Text werden nicht per OCR gelesen (nur Bilder); Bcc kennt Outlook nicht.
+  gescannte PDFs ohne Text werden per OCR gelesen (die ersten 10 Seiten, nur mit `pdftoppm` und `tesseract`, sonst nur Bilder); Bcc kennt Outlook nicht.
 - Mails, die Outlook nicht liefert (z. B. dort gelöscht), werden nach drei Versuchen übersprungen.
-- **Abschalten:** `"attachments": { "searchDocs": false }`. Index löschen = Datei entfernen, er baut sich neu auf.
+- **Abschalten:** `"attachments": { "searchDocs": false }`. Index löschen = Datei entfernen, er baut sich neu auf. Nach dem Einschalten der PDF-OCR liest die App alle Mails einmal neu nach, damit gescannte PDFs auffindbar werden.

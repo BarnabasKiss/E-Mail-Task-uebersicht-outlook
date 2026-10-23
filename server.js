@@ -15,7 +15,9 @@ import { createAttachmentReview } from './lib/attachment-review.js';
 import { createRoles } from './lib/roles.js';
 import { createAttachmentInfo } from './lib/attachment-info.js';
 import { createDocIndex } from './lib/doc-index.js';
+import { createContacts } from './lib/contacts.js';
 import { createLearner } from './lib/learner.js';
+import { createHistoryLearner } from './lib/history-learner.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
 
@@ -37,18 +39,23 @@ const matcher = createMatcher({ claude, vault, store });
 // --- Anhänge, Entwürfe, Lernen
 // Optional: entpacktes tesseract im Datenordner (ohne Installation, siehe docs/installation.md)
 if (useLocalTesseract(dataFile('tesseract'))) log('tesseract aus dem Datenordner');
-const attachments = createAttachments({ n8n, tmpDir: dataFile('tmp'), testDir: dataFile('test-anhaenge'), inlineOcr: cfg.attachments?.ocrInline !== false });
+const attachments = createAttachments({
+  n8n, tmpDir: dataFile('tmp'), testDir: dataFile('test-anhaenge'), inlineOcr: cfg.attachments?.ocrInline !== false,
+  pdfOcr: { enabled: cfg.attachments?.ocrPdf !== false, maxPages: cfg.attachments?.ocrPdfMaxPages ?? 10 },
+});
+const contacts = createContacts({ store });
 const drafts = createDrafts({
-  n8n, claude, rules, store, attachments,
+  n8n, claude, rules, store, attachments, contacts,
   ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize,
   readAttachments: cfg.attachments?.readByAi !== false,
 });
-const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames });
+const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames, contacts });
+const history = createHistoryLearner({ n8n, claude, rules, contacts, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, log });
 
 // --- Module mit eigenem Hintergrundjob (Intervalle: docs/konfiguration.md)
 const roles = createRoles({ drafts, store, ownAddress: cfg.ownAddress, aliases: cfg.ownAliases, getScheduler, log });
 const attInfo = createAttachmentInfo({ attachments, store, getScheduler, log });
-const docIndex = createDocIndex({ attachments, drafts, file: dataFile('doc-index.json'), getScheduler, log });
+const docIndex = createDocIndex({ attachments, drafts, file: dataFile('doc-index.json'), getScheduler, ocrVersion: cfg.attachments?.ocrPdf !== false ? 1 : 0, log });
 // Modul "Bewertung mit Anhängen": nur mit attachments.review.enabled, sonst läuft die App wie ohne.
 const review =
   cfg.attachments?.review?.enabled && cfg.attachments?.readByAi !== false
@@ -66,7 +73,7 @@ if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
 scheduler = createScheduler({ n8n, drafts, learner, store, poll, log, decorate: review?.decorate, extraJobs });
 
 // --- Webserver (nur localhost)
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex });
+const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history });
 const server = http.createServer(handler);
 server.listen(cfg.port, '127.0.0.1', () => {
   log(`Mail-App läuft auf http://localhost:${cfg.port}`);

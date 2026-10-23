@@ -97,3 +97,60 @@ test('Aufgabe übernehmen: Aufgabe wird eingetragen, die Mail bleibt in Offen, d
   assert.equal(s.store.get('tasks', 'M1').text, 'Rückruf');
   assert.equal(s.store.get('tasks', 'M1').heading, 'Kunden');
 });
+
+test('Sammelaktion: Done für mehrere Mails, ein Fehler stoppt die anderen nicht', async () => {
+  const s = setup({ neu: [row(1), row(2), row(3)] });
+  await s.scheduler.refresh();
+  const out = await actions.bulk.run({ ...s.services, actions }, { action: 'archive', ids: [1, 99, 3, 3], ignoreSender: true });
+  assert.equal(out.done, 2);
+  assert.deepEqual(out.failed.map((f) => f.id), [99]);
+  assert.equal(out.ignored, 2);
+  assert.deepEqual(s.scheduler.state.items.map((p) => p.id), [2]);
+  assert.deepEqual(s.calls.filter((c) => c[0] === 'setStatus'), [['setStatus', 1, 'done'], ['setStatus', 3, 'done']]);
+});
+
+test('Sammelaktion: Zurückholen lädt die Listen nur einmal neu', async () => {
+  const rows = { neu: [], done: [row(5, { status: 'done' }), row(6, { status: 'done' })] };
+  const s = setup(rows);
+  let lists = 0;
+  const list = s.n8n.listProposals;
+  s.n8n.listProposals = async (st) => (lists += 1, list(st));
+  await s.scheduler.refresh();
+  lists = 0;
+  rows.neu = rows.done.map((r) => ({ ...r, status: 'neu' }));
+  rows.done = [];
+  const out = await actions.bulk.run({ ...s.services, actions }, { action: 'restore', ids: [5, 6] });
+  assert.equal(out.done, 2);
+  assert.equal(lists, 4, 'eine Aktualisierung: neu + 3 Done-Status');
+  assert.deepEqual(s.scheduler.state.items.map((p) => p.id), [5, 6]);
+});
+
+test('Sammelaktion: Später setzt den Zeitpunkt für alle, Löschen entfernt alle', async () => {
+  const s = setup({ neu: [row(1), row(2)] });
+  await s.scheduler.refresh();
+  const until = new Date(Date.now() + 3600_000).toISOString();
+  await actions.bulk.run({ ...s.services, actions }, { action: 'snooze', ids: [1, 2], until });
+  assert.equal(s.store.get('snoozed', 'M1'), until);
+  assert.equal(s.store.get('snoozed', 'M2'), until);
+  const out = await actions.bulk.run({ ...s.services, actions }, { action: 'delete', ids: [1, 2] });
+  assert.equal(out.done, 2);
+  assert.deepEqual(s.scheduler.state.items, []);
+});
+
+test('Sammelaktion: nur erlaubte Aktionen, Liste nötig', async () => {
+  const s = setup();
+  await assert.rejects(actions.bulk.run({ ...s.services, actions }, { action: 'accept', ids: [1] }), /nicht möglich/);
+  await assert.rejects(actions.bulk.run({ ...s.services, actions }, { action: 'archive', ids: [] }), /Keine Mails/);
+});
+
+test('Entwurf: eine Version zurück tauscht Entwurf und Vorversion', async () => {
+  const s = setup({ neu: [row(1)] });
+  await s.scheduler.refresh();
+  s.store.set('drafts', 'M1', { text: 'neu', createdAt: 'b', previous: { text: 'alt', createdAt: 'a' } });
+  await actions['draft-previous'].run(s.services, { id: 1 });
+  assert.deepEqual(s.store.get('drafts', 'M1'), { text: 'alt', createdAt: 'a', previous: { text: 'neu', createdAt: 'b' } });
+  await actions['draft-previous'].run(s.services, { id: 1 });
+  assert.equal(s.store.get('drafts', 'M1').text, 'neu');
+  s.store.set('drafts', 'M1', { text: 'x', previous: null });
+  await assert.rejects(actions['draft-previous'].run(s.services, { id: 1 }), /keine vorige Version/);
+});

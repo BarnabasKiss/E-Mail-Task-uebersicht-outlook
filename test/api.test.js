@@ -12,6 +12,7 @@ import { createStore } from '../lib/store.js';
 import { createScheduler } from '../lib/scheduler.js';
 import { createAttachments } from '../lib/attachments.js';
 import { createDrafts } from '../lib/drafts.js';
+import { createContacts } from '../lib/contacts.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const addr = (name, address) => ({ emailAddress: { name, address } });
@@ -68,11 +69,14 @@ async function start({ rows = { neu: [row(1), row(2, { dringlichkeit: 'jetzt' })
   };
   const roles = { get: (id) => (id === 'M1' ? 'direkt' : null), remember: () => 'direkt' };
   const attInfo = { get: (id) => (id === 'M1' ? ['doc.pdf'] : null), remember: () => {} };
-  const rules = { urgencyRules: () => ({ ignorieren: [], jetzt: [], heute: [] }), file: path.join(dir, 'Regeln.md'), read: () => '' };
+  const ruleCalls = [];
+  let urgency = { ignorieren: [], jetzt: [], heute: [] };
+  const rules = { urgencyRules: () => urgency, setUrgencyRule: (...a) => ruleCalls.push(a), file: path.join(dir, 'Regeln.md'), read: () => '' };
+  const contacts = createContacts({ store });
   const vault = { headings: () => ['Kunden', 'Intern'], addTask: () => ({}) };
-  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex }));
+  server.on('request', createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher: {}, claude: { busy: false }, attachments, review: null, roles, attInfo, docIndex, contacts }));
   const get = (p, init) => fetch(`http://127.0.0.1:${port}${p}`, init);
-  return { get, calls, port, store, close: () => server.close() };
+  return { get, calls, ruleCalls, setUrgency: (u) => (urgency = u), contacts, port, store, close: () => server.close() };
 }
 
 test('Liste: nach Dringlichkeit sortiert, mit Rolle, Anhängen und Done-Liste', async () => {
@@ -232,6 +236,37 @@ test('Statische Dateien: Startseite wird geliefert, Pfade außerhalb von public/
     assert.equal((await s.get('/..%2fpackage.json')).status, 404);
     assert.equal((await s.get('/%2e%2e/config.example.json')).status, 404);
     assert.equal((await s.get('/gibtesnicht.js')).status, 404);
+  } finally {
+    s.close();
+  }
+});
+
+test('Absender-Profil: Zahlen aus den Mails, Regeln und Gedächtnis; Änderungen über die Aktion contact', async () => {
+  const s = await start();
+  try {
+    const post = (name, body) => s.get(`/api/actions/${name}`, { method: 'POST', headers: { 'x-mail-app': '1', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    s.setUrgency({ ignorieren: [], jetzt: ['helga@partner.at'], heute: [] });
+    s.contacts.learnStyle('helga@partner.at', { form: 'sie', gruss: 'Beste Grüße' }, 'Helga Brunner');
+    const profile = await (await s.get('/api/contacts/Helga%40Partner.at')).json();
+    assert.equal(profile.address, 'helga@partner.at');
+    assert.equal(profile.name, 'Helga Brunner');
+    assert.equal(profile.stats.total, 3, 'zwei offene und eine in Done');
+    assert.equal(profile.stats.open, 2);
+    assert.equal(profile.recent.length, 3);
+    assert.equal(profile.recent[0].zusammenfassung.startsWith('Z'), true, 'mit denselben Angaben wie die Liste');
+    assert.ok(['anhaenge', 'wichtig', 'rolle', 'aufgabe_uebernommen'].every((k) => k in profile.recent[0]));
+    assert.equal(profile.domain.key, '@partner.at');
+    assert.deepEqual(profile.rules, [{ kind: 'jetzt', pattern: 'helga@partner.at' }]);
+    assert.equal(profile.memory.person.fields.form.value, 'sie');
+    assert.equal((await s.get('/api/contacts/kaputt')).status, 500);
+
+    assert.equal((await post('contact', { op: 'field', key: 'helga@partner.at', field: 'form', value: 'du' })).status, 200);
+    assert.equal(s.contacts.effective('helga@partner.at').form.source, 'manuell');
+    assert.equal((await post('contact', { op: 'note-add', key: '@partner.at', text: 'Immer Aktenzeichen nennen.' })).status, 200);
+    assert.equal(s.contacts.effective('x@partner.at').notes[0].text, 'Immer Aktenzeichen nennen.');
+    assert.equal((await post('contact', { op: 'rule', key: '@partner.at', kind: 'heute', on: true })).status, 200);
+    assert.deepEqual(s.ruleCalls, [['heute', '@partner.at', true]]);
+    assert.equal((await post('contact', { op: 'zaubern', key: 'x@y.at' })).status, 500);
   } finally {
     s.close();
   }

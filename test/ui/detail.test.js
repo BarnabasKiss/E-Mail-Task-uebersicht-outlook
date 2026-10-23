@@ -16,7 +16,7 @@ const mailData = (o = {}) => ({
   receivedDateTime: '2026-10-23T07:00:00Z', text: 'Hallo Barni,\n\nsiehe Bild.\n\nLg Helga',
   masked: { text: 'Hallo Barni,\n\nsiehe Bild.\n\nLg [PERSON_1]', map: { '[PERSON_1]': 'Helga' } }, ...o,
 });
-const NAMES = ['accept', 'archive', 'remove', 'restore', 'snooze', 'reload', 'revertReview', 'regenerate'];
+const NAMES = ['accept', 'archive', 'remove', 'restore', 'snooze', 'reload', 'revertReview', 'regenerate', 'previousDraft'];
 const handlers = () => {
   const calls = [];
   const h = Object.fromEntries(NAMES.map((k) => [k, (...a) => calls.push([k, ...a])]));
@@ -165,4 +165,38 @@ test('Ansichtswechsel meldet die Wahl, Zusammenfassung ist Standard', opts, asyn
   assert.equal(tabMessage.getAttribute('aria-selected'), 'true');
   tabSummary.click();
   assert.deepEqual(seen, ['summary', 'message', 'summary']);
+});
+
+test('Entwurf: Varianten und Hinweis gehen mit dem Text im Feld an regenerate, "Vorige Version" nur mit Vorversion', opts, async () => {
+  const withDraft = { proposal: proposal({ antwort_noetig: true, hat_entwurf: true }), draft: { text: 'Hallo Helga,\n\nja.', variant: null, previous: null } };
+  const { box, calls } = await render(withDraft);
+  const buttons = () => Object.fromEntries([...box.querySelectorAll('.draft-tools .btn')].map((b) => [b.textContent.trim(), b]));
+  assert.deepEqual(Object.keys(buttons()), ['Kürzer', 'Förmlicher', 'Freundlicher', 'Ablehnung', 'Vorige Version']);
+  assert.ok(buttons()['Vorige Version'].hidden, 'ohne Vorversion versteckt');
+
+  const area = box.querySelector('.draft-text');
+  area.value = 'Hallo Helga,\n\nich schaue es mir an.';
+  area.dispatchEvent(new w.Event('input'));
+  box.querySelector('.draft-hint').value = 'sag, dass ich nächste Woche Zeit habe';
+  buttons().Kürzer.click();
+  await tick(10);
+  assert.deepEqual(calls.at(-1), ['regenerate', { variant: 'kuerzer', hint: 'sag, dass ich nächste Woche Zeit habe', base: 'Hallo Helga,\n\nich schaue es mir an.' }]);
+  assert.equal(box.querySelector('.draft-hint').value, '', 'Hinweis ist verbraucht');
+
+  box.querySelector('.draft-hint').value = 'nur kurz';
+  box.querySelector('.draft-hint').dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  await tick(10);
+  assert.equal(calls.at(-1)[1].variant, undefined, 'Enter im Hinweisfeld erzeugt neu ohne Variante');
+  assert.equal(calls.at(-1)[1].hint, 'nur kurz');
+});
+
+test('Entwurf: ohne Text im Feld sind nur Ablehnung und Neu erzeugen möglich; mit Vorversion erscheint der Zurück-Knopf', opts, async () => {
+  const { box, calls } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: '', previous: { text: 'alt' }, variant: 'kuerzer' } });
+  const btn = (name) => [...box.querySelectorAll('.draft-tools .btn')].find((b) => b.textContent.trim() === name);
+  assert.ok(btn('Kürzer').disabled && btn('Förmlicher').disabled && btn('Freundlicher').disabled);
+  assert.ok(!btn('Ablehnung').disabled);
+  assert.ok(!btn('Vorige Version').hidden);
+  btn('Vorige Version').click();
+  await tick(10);
+  assert.deepEqual(calls.at(-1), ['previousDraft']);
 });

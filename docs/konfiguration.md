@@ -37,6 +37,8 @@ der gilt, wenn der Schlüssel fehlt.
 |---|---|---|
 | `readByAi` | Text aus Anhängen und Bildern darf (anonymisiert) in Entwürfe | `true` |
 | `ocrInline` | Text aus Bildern in der Mail per OCR lesen | `true` |
+| `ocrPdf` | gescannte PDFs ohne Text per OCR lesen (`pdftoppm` + `tesseract`); auch für den Suchindex | `true` |
+| `ocrPdfMaxPages` | wie viele Seiten eines gescannten PDFs gelesen werden | 10 |
 | `searchDocs` | Hintergrundjob für den Suchindex (Anhänge, Empfänger, Mailtext) | `true` |
 | `review.enabled` | Modul „Bewertung mit Anhängen“ ([Datenschutz](datenschutz.md#modul-bewertung-mit-anhängen)) | `false` |
 | `review.maxPerRun` | Mails pro Durchlauf | 3 |
@@ -66,6 +68,10 @@ Du pflegst sie selbst, die App hängt nur Zeilen an. Abschnitte:
 - **Regeln pro Kontakt oder Firma**: besondere Anreden oder Vorgaben.
 - **Dringlichkeit und Ignorieren**: Absender (oder Domains), die immer „Jetzt“ oder „Heute“ sind oder ausgeblendet werden. „Done“ mit
   „Absender künftig ignorieren“ trägt hier einen Eintrag ein.
-- **Automatisch gelernt**: Stilregeln, die die App aus deinen gesendeten Antworten ableitet.
+- **Automatisch gelernt**: allgemeine Stilregeln, die die App aus jeder deiner gesendeten Antworten ableitet.
+- **Aus gesendeten Mails abgeleitet (bitte prüfen)**: Regeln aus dem [Lernen aus vielen gesendeten Mails](bedienung.md#aus-gesendeten-mails-lernen).
+
+Was die App über einzelne Personen und Firmen lernt (Du/Sie, Anrede, Gruß, Sprache, Notizen), steht nicht in dieser Datei, sondern im Absender-Gedächtnis
+(`state.json` im Datenordner) und wird im [Absender-Profil](bedienung.md#absender-profil-und-gedächtnis) bearbeitet.
 
 Auf den Vault greift die App nur für die Aufgabenliste zu (Aufgabe übernehmen), mit Sicherung und Prüfung vor jeder Änderung.

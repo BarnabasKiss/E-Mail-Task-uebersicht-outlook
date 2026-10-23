@@ -149,6 +149,15 @@ button { cursor: pointer; }
 .mail-row.u-woche::before { background: var(--woche); }
 .mail-row:hover { background: var(--hover); }
 .mail-row[aria-selected="true"] { background: var(--accent-weak); }
+.mail-row.is-marked { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); box-shadow: inset 0 0 0 2px var(--accent); }
+.mail-row.is-marked[aria-selected="true"] { background: color-mix(in srgb, var(--accent) 24%, var(--panel)); }
+.mark-bar { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--accent-weak); font-size: 12.5px; overflow: hidden; }
+.mark-bar[hidden] { display: none; }
+.mark-bar > * { flex: none; }
+.mark-bar .spacer { flex: 1 1 0; min-width: 0; }
+.mark-bar .btn.small { height: 28px; padding: 0 9px; font-size: 12.5px; box-shadow: none; }
+.mark-bar .icon-btn.small { width: 28px; height: 28px; }
+.mark-count { margin-right: 2px; white-space: nowrap; }
 .mail-row.is-test { background-image: repeating-linear-gradient(135deg, transparent 0 9px, color-mix(in srgb, var(--test) 7%, transparent) 9px 10px); }
 .mail-row { cursor: pointer; }
 .mail-row.is-done { opacity: .82; }
@@ -206,6 +215,11 @@ button { cursor: pointer; }
 .group-head.g-heute { color: var(--heute); background: color-mix(in srgb, var(--heute) 9%, var(--panel)); border-bottom-color: color-mix(in srgb, var(--heute) 25%, var(--border)); box-shadow: inset 3px 0 0 var(--heute); }
 .group-head.g-woche { color: var(--woche); background: color-mix(in srgb, var(--woche) 8%, var(--panel)); border-bottom-color: color-mix(in srgb, var(--woche) 25%, var(--border)); box-shadow: inset 3px 0 0 var(--woche); }
 .group-head[class*="g-"] .group-count { color: inherit; opacity: .75; }
+.group-head.g-egal { color: var(--egal); box-shadow: inset 3px 0 0 var(--egal); }
+button.group-head { width: 100%; border-left: 0; border-right: 0; border-top: 0; font: inherit; font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; text-align: left; cursor: pointer; }
+button.group-head:hover { background: var(--hover); }
+button.group-head .icon:first-child { transition: transform .12s ease; }
+button.group-head.is-collapsed .icon:first-child { transform: rotate(-90deg); }
 .group-head.g-ueberfaellig { color: var(--ueberfaellig); background: color-mix(in srgb, var(--ueberfaellig) 9%, var(--panel)); border-bottom-color: color-mix(in srgb, var(--ueberfaellig) 25%, var(--border)); box-shadow: inset 3px 0 0 var(--ueberfaellig); }
 
 /* Tag unten in der Zeile: Anhang (Formate) */
@@ -361,6 +375,11 @@ a.att:hover { background: var(--hover); }
 .draft { padding: 10px 12px 12px; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .card-head h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.draft-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
+.draft-tools .btn.small { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.draft-tools [hidden] { display: none; }
+.draft-hint { flex: 1 1 220px; min-width: 0; height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; font-size: 12.5px; }
+.draft-hint:focus { outline: none; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px var(--accent-weak); }
 .draft-status { font-size: 12px; color: var(--faint); }
 .draft-status.busy { color: var(--accent); }
 .draft-text { width: 100%; min-height: 120px; resize: vertical; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; line-height: 1.5; }
@@ -401,3 +420,63 @@ a.att:hover { background: var(--hover); }
   .status { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+/* Absender-Profil und Gedächtnis */
+.profile { display: grid; gap: 12px; align-content: start; }
+.profile .card { padding: 10px 12px 12px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat { display: grid; gap: 1px; min-width: 0; }
+.stat-value { font-weight: 650; overflow-wrap: anywhere; }
+.stat-label { font-size: 11.5px; color: var(--faint); }
+.rule-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.rule-label { min-width: 150px; color: var(--muted); }
+.rule-row .btn.small, .memory .btn.small { height: 28px; padding: 0 10px; font-size: 12.5px; }
+.rule-row .btn[aria-pressed="true"] { background: var(--accent-weak); border-color: var(--accent); color: var(--accent); }
+.hint { margin: 6px 0 0; font-size: 12px; color: var(--faint); }
+.mem-fields { display: grid; gap: 6px; margin-bottom: 10px; }
+.mem-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.mem-row label { color: var(--muted); }
+.memory input[type="text"], .memory select { height: 30px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; min-width: 0; }
+.memory input:focus, .memory select:focus { outline: none; border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px var(--accent-weak); }
+.mem-fixed { font-size: 11px; color: var(--accent); }
+.mem-notes { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 5px; }
+.mem-note { display: flex; align-items: center; gap: 6px; }
+.mem-note-text { flex: 1; }
+.mem-note.unreviewed .mem-note-text { border-color: var(--heute); }
+.mem-add { width: 100%; }
+.recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.recent li { display: flex; gap: 10px; align-items: baseline; min-width: 0; }
+.recent .link { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.recent-meta { margin-left: auto; font-size: 12px; color: var(--faint); white-space: nowrap; }
+
+/* Lernen aus gesendeten Mails */
+.learn { display: grid; gap: 12px; align-content: start; }
+.learn .card { padding: 12px 14px; }
+.learn-list, .learn-result { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
+.learn-start { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.learn-start input { width: 90px; height: 30px; padding: 0 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; }
+.learn-progress { margin-top: 10px; color: var(--accent); }
+
+/* Profilbild öffnet das Absender-Profil */
+.avatar-btn { all: unset; flex: none; display: inline-flex; border-radius: 50%; cursor: pointer; }
+.avatar-btn .avatar { transition: box-shadow .12s ease, transform .12s ease; }
+.avatar-btn:hover .avatar, .avatar-btn:focus-visible .avatar { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); transform: scale(1.06); }
+
+/* Profil: Tabs und Mailkarten */
+.profile .seg { justify-self: start; margin-bottom: 0; }
+.profile [hidden] { display: none; }
+.p-options { display: grid; gap: 12px; }
+.profile .card:has(> .p-mails) { padding: 0; overflow: hidden; }
+.p-mails { display: grid; }
+.p-mail { all: unset; box-sizing: border-box; position: relative; display: grid; gap: 3px; padding: 10px 14px 10px 17px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.p-mail:last-child { border-bottom: 0; }
+.p-mail::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: transparent; }
+.p-mail.u-jetzt::before { background: var(--jetzt); }
+.p-mail.u-heute::before { background: var(--heute); }
+.p-mail.u-woche::before { background: var(--woche); }
+.p-mail:hover, .p-mail:focus-visible { background: var(--hover); }
+.p-mail-top { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.p-mail-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p-mail-time { flex: none; font-size: 12px; color: var(--faint); }
+.p-mail-summary { color: var(--muted); font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.p-mail .row-badges { margin-top: 2px; }

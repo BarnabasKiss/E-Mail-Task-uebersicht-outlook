@@ -4,13 +4,15 @@ import { icon } from '../icons.js';
 import { formatOf } from '../search.js';
 
 export const TABS = [
-  { id: 'offen', label: 'Offen', test: (m) => !m.archiviert && !m.snoozed_until && m.dringlichkeit !== 'egal' },
-  { id: 'egal', label: 'Egal', test: (m) => !m.archiviert && !m.snoozed_until && m.dringlichkeit === 'egal' },
+  // "Egal" ist keine eigene Ansicht mehr, sondern eine zuklappbare Gruppe unter "Offen". Der Zähler am Reiter zählt sie nicht mit.
+  { id: 'offen', label: 'Offen', test: (m) => !m.archiviert && !m.snoozed_until, count: (m) => m.dringlichkeit !== 'egal' },
   { id: 'spaeter', label: 'Später', test: (m) => !m.archiviert && !!m.snoozed_until },
   { id: 'done', label: 'Done', test: (m) => m.archiviert },
 ];
 
-const GROUPS = ['jetzt', 'ueberfaellig', 'heute', 'woche'];
+const GROUPS = ['jetzt', 'ueberfaellig', 'heute', 'woche', 'egal'];
+/** Gruppen, die sich zuklappen lassen (der Zustand liegt in main.js). */
+export const COLLAPSIBLE = ['egal'];
 const GROUP_LABEL = { ...URGENCY_LABEL, ueberfaellig: 'Überfällig' };
 
 /** Überfällig: Frist vorbei, "Heute" von einem früheren Tag oder "Diese Woche" von vor mehr als 7 Tagen. "Jetzt" bleibt in "Jetzt". */
@@ -23,11 +25,13 @@ export function isOverdue(m, now = new Date()) {
   return m.dringlichkeit === 'heute' ? got < start : start - got > 7 * 86400000;
 }
 const groupOf = (m) => (isOverdue(m) ? 'ueberfaellig' : m.dringlichkeit);
+/** Mails, die in der aktuellen Ansicht sichtbar sind, wenn die Gruppen in `collapsed` zugeklappt sind (nur Offen ohne Suche gruppiert). */
+export const withoutCollapsed = (items, collapsed, tab, searching) => (searching || tab !== 'offen' ? items : items.filter((m) => !collapsed.has(groupOf(m))));
 
 export function renderTabs(container, items, activeTab, searching, onSelect) {
   container.replaceChildren(
     ...TABS.map((t) => {
-      const count = items.filter(t.test).length;
+      const count = items.filter(t.test).filter((m) => t.count?.(m) ?? true).length;
       return el(
         'button',
         { class: 'chip', role: 'tab', type: 'button', 'aria-selected': !searching && t.id === activeTab, onclick: () => onSelect(t.id) },
@@ -99,7 +103,7 @@ function quickButton(iconName, title, cls, onClick) {
   );
 }
 
-function row(m, selected, actions, query = '') {
+function row(m, selected, actions, query = '', marked = false) {
   const time = m.snoozed_until ? `bis ${formatShort(m.snoozed_until)}` : formatShort(m.received_at);
   const quick = m.archiviert
     ? [quickButton('undo', 'Zurückholen nach Offen', '', () => actions.restore(m.id)), quickButton('trash', 'Endgültig löschen', 'danger', () => actions.remove(m.id))]
@@ -107,12 +111,18 @@ function row(m, selected, actions, query = '') {
   return el(
     'div',
     {
-      class: `mail-row u-${m.dringlichkeit}${m.is_test ? ' is-test' : ''}${m.archiviert ? ' is-done' : ''}`,
+      class: `mail-row u-${m.dringlichkeit}${m.is_test ? ' is-test' : ''}${m.archiviert ? ' is-done' : ''}${marked ? ' is-marked' : ''}`,
       role: 'option',
       tabindex: '0',
       'aria-selected': selected,
+      'aria-checked': marked,
       'data-id': m.id,
-      onclick: () => actions.select(m.id),
+      onclick: (e) => {
+        // Strg (am Mac Cmd) + Klick markiert für Sammelaktionen, Umschalt + Klick markiert bis zu dieser Mail
+        if (e.ctrlKey || e.metaKey) actions.mark(m.id);
+        else if (e.shiftKey) actions.markRange(m.id);
+        else actions.select(m.id);
+      },
       onkeydown: (e) => {
         if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
           e.preventDefault();
@@ -146,14 +156,18 @@ function row(m, selected, actions, query = '') {
 }
 
 // Überschriften der Offen-Liste mit Farbe und Symbol; ohne level (Suche) schlicht.
-const GROUP_ICON = { jetzt: 'zap', ueberfaellig: 'alert', heute: 'sun', woche: 'calendar' };
-function header(text, count, level) {
-  return el('div', { class: `group-head${level ? ` g-${level}` : ''}`, role: 'presentation' }, el('span', { class: 'group-title' }, level && icon(GROUP_ICON[level], 14), text), el('span', { class: 'group-count' }, String(count)));
+const GROUP_ICON = { jetzt: 'zap', ueberfaellig: 'alert', heute: 'sun', woche: 'calendar', egal: 'inbox' };
+function header(text, count, level, { collapsed, onToggle } = {}) {
+  const title = el('span', { class: 'group-title' }, onToggle && icon('chevron', 14), level && icon(GROUP_ICON[level], 14), text);
+  const countNode = el('span', { class: 'group-count' }, String(count));
+  const cls = `group-head${level ? ` g-${level}` : ''}`;
+  if (!onToggle) return el('div', { class: cls, role: 'presentation' }, title, countNode);
+  return el('button', { class: `${cls} collapsible${collapsed ? ' is-collapsed' : ''}`, type: 'button', 'aria-expanded': !collapsed, title: collapsed ? 'Aufklappen' : 'Zuklappen', onclick: onToggle, onkeydown: (e) => e.stopPropagation() }, title, countNode);
 }
 
 /** items: bereits nach Tab/Suche gefilterte Liste. Gruppiert nur in "Offen" ohne Suche. */
-export function renderList(container, { items, selectedId, query, tab, actions, docCoverage, searching = query.trim().length > 0 }) {
-  const mk = (m) => row(m, String(m.id) === String(selectedId), actions, query);
+export function renderList(container, { items, selectedId, query, tab, actions, docCoverage, marking, collapsed = new Set(), searching = query.trim().length > 0 }) {
+  const mk = (m) => row(m, String(m.id) === String(selectedId), actions, query, !!marking?.has(m.id));
   const nodes = [];
   if (!items.length) {
     const text = searching ? (query.trim() ? `Nichts gefunden für „${query}“.` : 'Keine Mail passt zu den Filtern.') : tab === 'offen' ? 'Keine offenen Mails.' : tab === 'done' ? 'In Done liegt noch nichts. Erledigte Mails landen hier.' : 'Hier ist nichts.';
@@ -166,7 +180,9 @@ export function renderList(container, { items, selectedId, query, tab, actions, 
     for (const g of GROUPS) {
       const inGroup = items.filter((m) => groupOf(m) === g);
       if (g === 'ueberfaellig') inGroup.sort((a, b) => String(a.received_at).localeCompare(String(b.received_at))); // am längsten überfällig zuerst
-      if (inGroup.length) nodes.push(header(GROUP_LABEL[g], inGroup.length, g), ...inGroup.map(mk));
+      if (!inGroup.length) continue;
+      const fold = COLLAPSIBLE.includes(g) ? { collapsed: collapsed.has(g), onToggle: () => actions.toggleGroup(g) } : undefined;
+      nodes.push(header(GROUP_LABEL[g], inGroup.length, g, fold), ...(fold?.collapsed ? [] : inGroup.map(mk)));
     }
   } else {
     nodes.push(...items.map(mk));

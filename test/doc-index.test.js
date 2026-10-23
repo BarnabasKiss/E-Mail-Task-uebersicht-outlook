@@ -112,3 +112,23 @@ test('Mail, die Outlook dauerhaft nicht liefert, wird nach drei Versuchen aufgeg
   }
   assert.equal(calls, 3);
 });
+
+test('Einträge ohne OCR-Stand werden einmal neu gelesen, damit gescannte PDFs auffindbar werden', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docidx-'));
+  const file = path.join(dir, 'i.json');
+  const sched = { state: { items: [{ id: 1, mail_id: 'M1' }], archive: [], archiveAt: null } };
+  const make = (readAll, ocrVersion) => createDocIndex({ attachments: { readAll }, drafts: fakeDrafts(), file, getScheduler: () => sched, ocrVersion, log: () => {} });
+
+  let reads = 0;
+  const before = make(async () => (reads += 1, []), 0);
+  await before.run();
+  await before.run();
+  assert.equal(reads, 1);
+
+  await new Promise((r) => setTimeout(r, 1100)); // Index wird verzögert gespeichert
+  const after = make(async () => [{ name: 'scan.pdf', text: 'Kfz-Haftpflicht Scan' }], 1);
+  await after.run();
+  assert.deepEqual(Object.keys(after.search('haftpflicht')), ['M1']);
+  await after.run(); // nicht noch einmal
+  assert.equal(Object.keys(after.search('haftpflicht')).length, 1);
+});

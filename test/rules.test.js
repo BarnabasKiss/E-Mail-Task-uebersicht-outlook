@@ -55,3 +55,24 @@ test('Später-erinnern-Optionen liegen in der Zukunft', () => {
   assert.ok(!opts.some((o) => o.label === 'Heute 16:00'), 'Heute 16:00 ist schon vorbei');
   assert.equal(opts.at(-1).date.getDay(), 1, 'nächste Woche = Montag');
 });
+
+test('Regel für einen Absender setzen und aufheben; je Adresse nur eine Art', async () => {
+  const { matchingUrgencyRules } = await import('../lib/rules.js');
+  const r = tmpRules();
+  r.setUrgencyRule('ignorieren', 'News@A.at');
+  assert.deepEqual(r.urgencyRules().ignorieren, ['news@a.at']);
+  r.setUrgencyRule('jetzt', 'news@a.at');
+  assert.deepEqual(r.urgencyRules(), { ignorieren: [], jetzt: ['news@a.at'], heute: [] });
+  assert.deepEqual(matchingUrgencyRules('news@a.at', r.urgencyRules()), [{ kind: 'jetzt', pattern: 'news@a.at' }]);
+  r.setUrgencyRule('jetzt', 'news@a.at', false);
+  assert.deepEqual(r.urgencyRules(), { ignorieren: [], jetzt: [], heute: [] });
+  assert.throws(() => r.setUrgencyRule('wichtig', 'x@y.at'), /Unbekannte Regel/);
+  assert.throws(() => r.setUrgencyRule('jetzt', 'a b'), /Ungültige Adresse/);
+});
+
+test('Regel aufheben lässt die anderen Einträge einer Sammelzeile stehen', () => {
+  const r = tmpRules();
+  fs.appendFileSync(r.file, '\n- Ignorieren: a@x.at, @y.at, b@x.at\n');
+  r.setUrgencyRule('ignorieren', '@y.at', false);
+  assert.deepEqual(r.urgencyRules().ignorieren, ['a@x.at', 'b@x.at']);
+});

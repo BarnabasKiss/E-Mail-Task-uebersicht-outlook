@@ -39,6 +39,15 @@ eine Telefon- oder lange Zahl, wird **nichts an Claude gesendet**: Der Entwurf e
   den Text aus Anhängen und das **Ergebnis der Prüfung** („Prüfung bestanden“ oder „Würde NICHT an Claude gesendet“ mit Grund). Nichts wird dabei gesendet.
 - Bei aktivem Modul „Bewertung mit Anhängen“ zeigt **Was geht an Claude?** (unter den Anhängen) den genauen Prompt.
 
+## Absender-Gedächtnis und Lernen aus Gesendetem
+- Das Absender-Gedächtnis (Du/Sie, Anrede-Muster, Gruß, Sprache, Notizen) liegt nur lokal in `state.json`. Die Anrede wird als Muster gespeichert
+  (`Hallo {Vorname},`), nie mit dem Klarnamen. Ansprache, Anrede, Gruß und Sprache erkennt die App **lokal ohne KI** (`lib/style-extract.js`).
+- In einen Entwurf gehen nur Ansprache, Sprache und die Notizen, und die Notizen werden mit der Mail pseudonymisiert. Keine Klarnamen in Notizen schreiben.
+- **Lernen aus vielen gesendeten Mails** (Knopf „Lernen“): n8n liefert deine gesendeten Mails nur lesend (`listSent`). Rundmails (mehr als 4 Empfänger)
+  und sehr kurze Mails zählen nicht. An Claude gehen nur kurze **anonymisierte Auszüge** (strenge Maskierung mit Prüfung wie bei Anhängen, 700 Zeichen je Mail,
+  höchstens 30 Mails für allgemeine Regeln und 5 je Person für höchstens 12 Personen). Besteht eine Mail die Prüfung nicht, bleibt sie draußen.
+  Alles Abgeleitete ist als „prüfen“ markiert beziehungsweise steht in einem eigenen Abschnitt der Regeldatei.
+
 ## Modul „Bewertung mit Anhängen“
 Die Bewertung in n8n kennt nur den Mailtext. Dieses abschaltbare Modul (`lib/attachment-review.js`) bewertet Mails mit lesbaren Anhängen zusätzlich lokal
 über `claude -p` neu und überlagert die n8n-Bewertung. In n8n wird nichts geändert.

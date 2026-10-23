@@ -16,6 +16,9 @@ const mk = (id, o = {}) => ({
 });
 const db = { items: [mk(1, { dringlichkeit: 'jetzt', rolle: 'direkt' }), mk(2, { absender: 'Helga Brunner', absender_mail: 'helga@y.at' }), mk(3, { anhaenge: ['Rechnung.pdf'] })], archive: [mk(9, { status: 'done', archiviert: true })] };
 const requests = [];
+const contactNotes = [{ id: 'n1', text: 'Antwortet knapp.', source: 'gelernt', reviewed: false, scope: 'person' }];
+let contactRules = [];
+let learnStatus = { running: false, phase: 'idle', read: 0, usable: 0, people: 0, error: null, result: null };
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = async (url, init = {}) => {
@@ -25,7 +28,7 @@ globalThis.fetch = async (url, init = {}) => {
   const p = u.pathname;
   const all = [...db.items, ...db.archive];
   const byId = (id) => all.find((m) => String(m.id) === String(id));
-  if (p === '/api/proposals') return json({ items: db.items, archive: db.archive, hidden: 0, ownAddress: 'barni@firma.at' });
+  if (p === '/api/proposals' || p === '/api/refresh') return json({ items: db.items, archive: db.archive, hidden: 0, ownAddress: 'barni@firma.at' });
   if (p === '/api/status') return json({ fetchedAt: new Date().toISOString(), error: null, claudeBusy: false, rulesFile: '/x/Mail-Regeln.md' });
   if (p === '/api/search') return json({ hits: u.searchParams.get('q') === 'rechnung' ? { M3: [{ kind: 'doc', name: 'Rechnung.pdf', snippet: '…Rechnung 4711…' }] } : {}, indexed: 1, total: 4 });
   let m = /^\/api\/proposals\/(\d+)\/attachments$/.exec(p);
@@ -38,9 +41,30 @@ globalThis.fetch = async (url, init = {}) => {
     const it = byId(m[1]);
     return json({ proposal: it, mail: { source: 'outlook', subject: it.betreff, from: { name: it.absender, address: it.absender_mail }, to: [], cc: [], receivedDateTime: it.received_at, text: `Text von ${it.betreff}` }, mailError: null, draft: null, headings: [] });
   }
+  if (p === '/api/history-learn') return json(learnStatus);
+  m = /^\/api\/contacts\/(.+)$/.exec(p);
+  if (m) {
+    const address = decodeURIComponent(m[1]);
+    const part = (key, extra = {}) => ({ key, name: '', fields: { form: { value: 'sie', source: 'gelernt', count: 2, total: 2 }, sprache: null, anrede: null, gruss: null }, notes: contactNotes, ...extra });
+    return json({
+      address, name: 'Helga Brunner', stats: { total: 3, open: 2, first: '2026-01-05T08:00:00Z', last: '2026-10-22T08:00:00Z', roles: { direkt: 2, cc: 1, shared: 0 }, tasksTaken: 1, tasksOpen: 1, replyAsked: 2, replied: 1 },
+      recent: [mk(2, { zusammenfassung: 'Helga fragt nach dem Betrag.', kategorie: 'Kunde', anhaenge: ['Rechnung.pdf', 'Liste.xlsx'], frist: '2026-10-30', aufgabe_text: 'Betrag prüfen', rolle: 'direkt', wichtig: ['Frist'] })], domain: { key: '@y.at', mails: 3, persons: 1 }, rules: contactRules,
+      memory: { person: part(address), domain: part('@y.at', { notes: [] }) },
+    });
+  }
   m = /^\/api\/actions\/(\w[\w-]*)$/.exec(p);
   if (m && method === 'POST') {
-    const { id } = JSON.parse(init.body);
+    const { id, ...rest } = JSON.parse(init.body);
+    if (m[1] === 'bulk') {
+      for (const bid of rest.ids) {
+        const it = byId(bid);
+        if (rest.action === 'archive') (db.items = db.items.filter((x) => x.id !== bid), db.archive.unshift({ ...it, status: 'done', archiviert: true }));
+        if (rest.action === 'restore') (db.archive = db.archive.filter((x) => x.id !== bid), db.items.push({ ...it, status: 'neu', archiviert: false }));
+        if (rest.action === 'snooze') it.snoozed_until = rest.until;
+        if (rest.action === 'delete') (db.items = db.items.filter((x) => x.id !== bid), db.archive = db.archive.filter((x) => x.id !== bid));
+      }
+      return json({ done: rest.ids.length, failed: [], ignored: 0 });
+    }
     if (m[1] === 'archive') {
       const it = db.items.find((x) => x.id === id);
       db.items = db.items.filter((x) => x.id !== id);
@@ -79,7 +103,7 @@ test('Start: Liste gruppiert, erste Mail geöffnet, Tab-Titel zählt wichtige Ma
   assert.deepEqual(rowTitles(), ['Betreff 1', 'Betreff 2', 'Betreff 3']);
   assert.equal(document.querySelector('#detail h2').textContent, 'Betreff 1');
   assert.equal(document.title, '(1 wichtig) Mail-Übersicht');
-  assert.deepEqual([...$('tabs').querySelectorAll('.chip')].map((c) => c.textContent), ['Offen3', 'Egal0', 'Später0', 'Done1']);
+  assert.deepEqual([...$('tabs').querySelectorAll('.chip')].map((c) => c.textContent), ['Offen3', 'Später0', 'Done1']);
   assert.match(location.hash, /mail=1/);
   assert.equal(document.querySelector('.mail-row[aria-selected="true"] .row-subject').textContent, 'Betreff 1');
 });
@@ -145,4 +169,241 @@ test('Reiter Done zeigt die abgelegten Mails; Taste / springt ins Suchfeld', opt
   assert.deepEqual(rowTitles(), ['Betreff 1', 'Betreff 9']);
   key('/');
   assert.equal(document.activeElement, $('search'));
+});
+
+const marked = () => rows().filter((r) => r.classList.contains('is-marked')).map((r) => r.querySelector('.row-subject').textContent);
+const bar = () => $('mark-bar');
+const bulkPosts = () => requests.filter((r) => r.path === '/api/actions/bulk');
+const lastBulkBody = () => bulkBody;
+let bulkBody = null;
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  if (String(url).endsWith('/api/actions/bulk')) bulkBody = JSON.parse(init.body);
+  return realFetch(url, init);
+};
+
+const click = (node, extra = {}) => node.dispatchEvent(new w.MouseEvent('click', { bubbles: true, ...extra }));
+const barButton = (text) => [...bar().querySelectorAll('button')].find((b) => b.textContent.includes(text));
+
+test('Sammelaktion: Strg + Klick markiert (ohne Kästchen), die Leiste hat einfache Buttons, "Zurückholen" holt alle zurück', opts, async () => {
+  $('search').blur(); // der Test davor hat mit / ins Suchfeld gewechselt
+  rows()[0].click(); // Betreff 1 in Done
+  await tick(30);
+  assert.ok(bar().hidden);
+  click(rows()[0], { ctrlKey: true });
+  click(rows()[1], { ctrlKey: true });
+  await tick(30);
+  assert.deepEqual(marked(), ['Betreff 1', 'Betreff 9']);
+  assert.match(document.querySelector('#detail h2').textContent, /Betreff 1/, 'Strg + Klick wählt keine andere Mail');
+  assert.match(bar().textContent, /2 markiert/);
+  assert.ok(barButton('Zurückholen'));
+  assert.ok(!barButton('Später'), 'Später gibt es für Done-Mails nicht');
+  assert.ok(!bar().textContent.includes('ignorieren'), 'kein Absender ignorieren in der Sammelaktion');
+  const delBtn = bar().querySelector('.icon-btn.danger');
+  assert.ok(delBtn && delBtn.textContent.trim() === '' && /löschen/i.test(delBtn.title), 'Löschen ist nur ein Symbol');
+  assert.ok(bar().querySelector('.spacer'));
+  assert.equal(bar().querySelectorAll('kbd').length, 0, 'keine Tastenkürzel');
+  assert.equal(document.querySelectorAll('#list input[type=checkbox]').length, 0, 'keine Kästchen');
+  click(rows()[0], { ctrlKey: true }); // Markierung wieder aufheben
+  assert.deepEqual(marked(), ['Betreff 9']);
+  click(rows()[0], { ctrlKey: true });
+  barButton('Zurückholen').click();
+  await tick(80);
+  assert.equal(lastBulkBody().action, 'restore');
+  assert.deepEqual([...lastBulkBody().ids].sort(), [1, 9]);
+  assert.ok(bar().hidden);
+  assert.ok($('toast').textContent.includes('2 Mails zurückgeholt'));
+});
+
+test('Sammelaktion: Umschalt + Klick markiert einen Bereich, Später zeigt Zeitpunkte als Buttons', opts, async () => {
+  [...$('tabs').querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Offen')).click();
+  await tick(30);
+  assert.deepEqual(rowTitles(), ['Betreff 1', 'Betreff 2', 'Betreff 3', 'Betreff 9']);
+  rows()[1].click(); // Betreff 2
+  await tick(30);
+  click(rows()[2], { shiftKey: true });
+  assert.deepEqual(marked(), ['Betreff 2', 'Betreff 3']);
+  barButton('Später').click();
+  assert.match(bar().textContent, /In 1 Stunde/);
+  assert.match(bar().textContent, /Nächste Woche/);
+  assert.ok(!bar().textContent.includes('Mo 08:00'));
+  assert.ok(!bar().textContent.includes('markiert'), 'in einer Zeile: nur die Zeitpunkte');
+  bar().querySelector('.icon-btn').click(); // zurück zu den Aktionen, die Markierung bleibt
+  assert.match(bar().textContent, /2 markiert/);
+  assert.ok(!bar().textContent.includes('In 1 Stunde'));
+  barButton('Später').click();
+  barButton('In 1 Stunde').click();
+  await tick(80);
+  assert.equal(lastBulkBody().action, 'snooze');
+  assert.deepEqual(lastBulkBody().ids, [2, 3]);
+  assert.ok(Date.parse(lastBulkBody().until) > Date.now());
+  assert.ok(bar().hidden);
+});
+
+test('Sammelaktion: Alle, Aufheben und Esc, Löschen fragt einmal mit Anzahl nach', opts, async () => {
+  assert.equal(rowTitles().length, 2); // 2 und 3 sind zurückgestellt
+  click(rows()[0], { ctrlKey: true });
+  barButton('Alle').click();
+  assert.equal(marked().length, 2);
+  bar().querySelector('.icon-btn:not(.danger)').click();
+  assert.equal(marked().length, 0);
+  assert.ok(bar().hidden);
+  click(rows()[0], { ctrlKey: true });
+  key('Escape');
+  assert.equal(marked().length, 0, 'Esc hebt die Markierung auf');
+  click(rows()[0], { ctrlKey: true });
+  barButton('Alle').click();
+  let asked = '';
+  globalThis.confirm = (t) => ((asked = t), true);
+  bar().querySelector('.icon-btn.danger').click();
+  await tick(80);
+  assert.match(asked, /^2 Konversationen endgültig löschen/);
+  assert.equal(lastBulkBody().action, 'delete');
+  assert.equal(rows().length, 0);
+});
+
+test('Tasten x, a, s und Umschalt+j lösen keine Sammelaktion mehr aus', opts, async () => {
+  db.items.push(mk(31), mk(32));
+  $('refresh').click();
+  await tick(80);
+  rows()[0].click();
+  await tick(30);
+  const before = requests.length;
+  for (const k of ['x', 'a', 's']) key(k);
+  key('J', { shiftKey: true });
+  assert.equal(marked().length, 0);
+  assert.ok(bar().hidden);
+  assert.equal(requests.slice(before).filter((r) => r.method === 'POST').length, 0);
+});
+
+test('Sammelaktionen gehen nur über den Sammelaufruf (bulk), je Klick genau einer', opts, () => {
+  assert.equal(bulkPosts().length, 3, 'bisher nur die drei Sammelaufrufe');
+});
+
+const posted = (name) => requests.filter((r) => r.method === 'POST' && r.path === `/api/actions/${name}`).length;
+let contactBody = null;
+let lastLearnBody = null;
+const fetchBefore = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  if (String(url).endsWith('/api/actions/contact')) contactBody = JSON.parse(init.body);
+  if (String(url).endsWith('/api/actions/history-learn')) lastLearnBody = init.body;
+  return fetchBefore(url, init);
+};
+
+test('Absender-Profil: Klick aufs Profilbild öffnet es, Zahlen und Gedächtnis stehen da, Änderungen gehen als Aktion contact raus, Zurück öffnet die Mail', opts, async () => {
+  [...$('tabs').querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Offen')).click();
+  await tick(30);
+  db.items.push(mk(21, { absender: 'Helga Brunner', absender_mail: 'helga@y.at' }));
+  $('refresh').click();
+  await tick(80);
+  rows().find((r) => r.querySelector('.row-subject').textContent === 'Betreff 21').click();
+  await tick(60);
+  assert.equal(document.querySelectorAll('.avatar-btn').length, 1);
+  document.querySelector('.avatar-btn').click();
+  await tick(60);
+  assert.match(location.hash, /kontakt=helga%40y\.at/);
+  const profile = document.querySelector('#detail .profile');
+  assert.ok(profile);
+  assert.equal(profile.querySelector('h2').textContent, 'Helga Brunner');
+  const visible = [...profile.children].filter((c) => !c.hidden && c.matches('section'));
+  assert.equal(visible.length, 1, 'standardmäßig nur die letzten Mails');
+  assert.ok(visible[0].querySelector('.p-mail'));
+  const card = visible[0].querySelector('.p-mail').textContent;
+  assert.match(card, /Betreff 2/);
+  assert.match(card, /Helga fragt nach dem Betrag/);
+  assert.match(card, /PDF · XLSX/);
+  assert.match(card, /Aufgabe vorgeschlagen/);
+  assert.match(card, /Frist 30\.10\./);
+  assert.match(card, /Wichtig/);
+  assert.deepEqual([...profile.querySelectorAll('.seg-btn')].map((b) => b.textContent), ['Letzte Mails', 'Überblick', 'Optionen']);
+  const tabBtn = (name) => [...profile.querySelectorAll('.seg-btn')].find((b) => b.textContent === name);
+  tabBtn('Überblick').click();
+  assert.ok(!profile.querySelector('.stats').closest('section').hidden);
+  assert.match(profile.querySelector('.stats').textContent, /3 \(2 offen\)/);
+  tabBtn('Optionen').click();
+  assert.ok(!profile.querySelector('.p-options').hidden);
+  assert.match(profile.querySelector('.stats').textContent, /3 \(2 offen\)/);
+  assert.match(profile.querySelector('.stats').textContent, /Direkt 2 · CC 1/);
+  assert.match(profile.querySelector('.stats').textContent, /1 von 2/);
+  assert.equal(profile.querySelectorAll('.memory').length, 2, 'Person und Firma');
+  assert.match(profile.querySelector('.memory option').textContent, /Automatisch \(gelernt: Sie \(2 von 2\)\)/);
+  assert.ok(profile.querySelector('.mem-note.unreviewed'), 'Neues ist als "prüfen" markiert');
+
+  const select = profile.querySelector('.memory select');
+  select.value = 'du';
+  select.dispatchEvent(new w.Event('change'));
+  await tick(60);
+  assert.deepEqual(contactBody, { op: 'field', key: 'helga@y.at', field: 'form', value: 'du' });
+
+  contactRules = [{ kind: 'jetzt', pattern: 'helga@y.at' }];
+  const jetzt = [...document.querySelectorAll('.rule-row .btn')].find((b) => b.textContent.includes('Jetzt'));
+  jetzt.click();
+  await tick(80);
+  assert.deepEqual(contactBody, { op: 'rule', key: 'helga@y.at', kind: 'jetzt', on: true });
+  assert.equal([...document.querySelectorAll('.rule-row .btn')].find((b) => b.textContent.includes('Jetzt')).getAttribute('aria-pressed'), 'true');
+  assert.ok(!document.querySelector('#detail .p-options').hidden, 'nach einer Änderung bleibt der Tab Optionen offen');
+
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
+  assert.equal(document.querySelector('#detail h2').textContent, 'Betreff 21');
+  assert.ok(!location.hash.includes('kontakt'));
+});
+
+test('Lernen aus Gesendetem: Ansicht mit Start, Fortschritt und Ergebnis', opts, async () => {
+  $('learn-link').click();
+  await tick(60);
+  assert.equal(document.querySelector('#detail .learn h2').textContent, 'Aus gesendeten Mails lernen');
+  learnStatus = { running: true, phase: 'personen', read: 25, usable: 20, people: 3, error: null, result: null };
+  const startBtn = [...document.querySelectorAll('#detail .learn .btn.primary')][0];
+  document.querySelector('#detail .learn input[type=number]').value = '50';
+  startBtn.click();
+  await tick(60);
+  assert.deepEqual(JSON.parse(lastLearnBody), { count: 50 });
+  assert.match(document.querySelector('#detail .learn-progress').textContent, /Notizen je Person/);
+  assert.match(document.querySelector('#detail .learn-progress').textContent, /25 Mails gelesen, 20 brauchbar, Person 3/);
+  assert.ok(document.querySelector('#detail .learn .btn.primary').disabled, 'während des Laufs nicht nochmal startbar');
+  learnStatus = { running: false, phase: 'fertig', read: 25, usable: 20, people: 3, error: null, result: { mails: 25, usable: 20, newMails: 20, people: 5, rulesAdded: 4, notesAdded: 6, skipped: 1 } };
+  await tick(2100); // der Stand wird alle 2 Sekunden abgefragt
+  assert.match(document.querySelector('#detail .learn-result').textContent, /4 neue allgemeine Regeln/);
+  assert.match(document.querySelector('#detail .learn-result').textContent, /1 Mails wurden nicht an Claude gegeben/);
+  [...document.querySelectorAll('#detail .d-actions .btn')].find((b) => b.textContent.includes('Zurück')).click();
+  await tick(60);
+  assert.ok(document.querySelector('#detail h2'));
+  assert.ok(!document.querySelector('#detail .learn'));
+});
+
+test('Egal ist eine zuklappbare Gruppe unter Offen: zunächst zu, zählt nicht am Reiter, zugeklappte Mails bleiben für Tastatur und "Alle" außen vor', opts, async () => {
+  $('search').blur();
+  [...$('tabs').querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Offen')).click();
+  await tick(30);
+  const before = rowTitles().length;
+  const offenChip = () => [...$('tabs').querySelectorAll('.chip')].find((c) => c.textContent.startsWith('Offen')).textContent;
+  const chipBefore = offenChip();
+  db.items.push(mk(41, { dringlichkeit: 'egal', betreff: 'Newsletter A' }), mk(42, { dringlichkeit: 'egal', betreff: 'Newsletter B' }));
+  $('refresh').click();
+  await tick(80);
+  const head = document.querySelector('#list .group-head.g-egal');
+  assert.ok(head, 'Gruppe Egal ist da');
+  assert.equal(head.textContent.replace(/\d+$/, '').trim(), 'Egal', 'ohne Zähler im Namen');
+  assert.equal(head.querySelector('.group-count').textContent, '2');
+  assert.equal(head.getAttribute('aria-expanded'), 'false');
+  assert.equal(rowTitles().length, before, 'zugeklappt: keine Egal-Mails in der Liste');
+  assert.equal(offenChip(), chipBefore, 'Zähler am Reiter ohne Egal');
+  assert.ok(![...$('tabs').querySelectorAll('.chip')].some((c) => c.textContent.startsWith('Egal')), 'kein Reiter Egal mehr');
+
+  click(rows()[0], { ctrlKey: true });
+  barButton('Alle').click();
+  assert.equal(marked().length, before, '"Alle" markiert nur Sichtbares');
+  key('Escape');
+
+  head.click();
+  await tick(30);
+  assert.equal(document.querySelector('#list .group-head.g-egal').getAttribute('aria-expanded'), 'true');
+  assert.deepEqual(rowTitles().slice(-2), ['Newsletter A', 'Newsletter B']);
+  assert.equal(JSON.parse(localStorage.getItem('mail-app.collapsed')).includes('egal'), false, 'die Wahl wird gemerkt');
+
+  document.querySelector('#list .group-head.g-egal').click();
+  await tick(30);
+  assert.equal(rowTitles().length, before);
+  assert.deepEqual(JSON.parse(localStorage.getItem('mail-app.collapsed')), ['egal']);
 });

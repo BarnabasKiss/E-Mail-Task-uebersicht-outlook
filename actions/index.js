@@ -6,5 +6,9 @@ import restore from './restore.js';
 import snooze from './snooze.js';
 import regenerateDraft from './regenerate-draft.js';
 import reviewRevert from './review-revert.js';
+import draftPrevious from './draft-previous.js';
+import contact from './contact.js';
+import historyLearn from './history-learn.js';
+import bulk from './bulk.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, reviewRevert].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, draftPrevious, reviewRevert, contact, historyLearn, bulk].map((a) => [a.name, a]));

@@ -19,7 +19,7 @@ Outlook ─► n8n "Mail-Eingang"  ─► Datentabelle "Mail-Vorschläge" ◄─
 ```
 server.js               Startpunkt: baut alle Module zusammen, startet Hintergrundjobs und den lokalen Webserver
 config.example.json     Vorlage der Einstellungen (config.json ist nicht im Repo)
-actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, review-revert
+actions/                eine Datei je Aktion: accept, archive, delete, restore, snooze, regenerate-draft, draft-previous, review-revert, contact, history-learn, bulk (Sammelaktion)
 lib/
   Schnittstelle
     api.js              Routen unter /api/ (nur Routing), statische Dateien
@@ -29,7 +29,7 @@ lib/
     attachment-http.js  Auslieferung eines Anhangs (nie als HTML/Skript)
     open-file.js        Datei mit dem Standardprogramm öffnen (Windows, macOS, Linux)
   Daten und Dienste
-    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge)
+    n8n-client.js       spricht nur mit der n8n-Schnittstelle (list, setStatus, getMail, hasReply, Anhänge, listSent)
     scheduler.js        Hintergrundjobs: Vorschläge, Done-Liste, Antworten, Entwürfe, Lernen (+ Zusatzjobs der Module)
     store.js            lokaler Zustand (state.json, atomar geschrieben)
     config.js           config.json laden, ~ und %VAR% in Pfaden ersetzen
@@ -49,6 +49,11 @@ lib/
     doc-index.js        Hintergrundjob und Suche: Anhangstext, Empfänger, Mailtext
     html.js             HTML zu Text, Marken für eingebettete Bilder, zitierte Verläufe abschneiden
     test-mail.js        Testmails (mail_id ab TEST-)
+  Gedächtnis und Lernen
+    contacts.js         Absender-Gedächtnis je Person und Firma (Du/Sie, Anrede, Gruß, Sprache, Notizen)
+    style-extract.js    Stilmerkmale aus einem Text erkennen (ohne KI), Anrede/Gruß in Entwürfe einsetzen
+    contact-profile.js  Zahlen und Gedächtnis für das Absender-Profil
+    history-learner.js  Lernen aus vielen gesendeten Mails (n8n listSent, Claude mit anonymisierten Auszügen)
   Auswertung
     roles.js            Direkt/CC/Shared aus An/Cc
     importance.js       Tag "Wichtig" aus dem Inhalt
@@ -61,7 +66,9 @@ public/                 Oberfläche
     search-controller.js, search.js     Suche und Filter (Zustand, Logik)
     attention.js, attention-signal.js, tab-signal.js, notifier.js   Tab-Symbol, Titel, Benachrichtigungen
     hash.js, shortcuts.js, status-bar.js, api.js, util.js, icons.js, snooze-options.js
-    components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu
+    marking.js, shortcuts.js    markierte Mails (Sammelaktionen) und Tastatur
+    components/         list, detail, mail-body, mail-text, attachments-box, task-row, draft-panel, search-panel, menu, snooze-menu,
+                        mark-bar, profile, memory-panel, learn-panel
 test/                   Tests (node --test); test/ui/ = Oberfläche im simulierten Browser
 n8n/                    Nachbauanleitung, Code der Code-Nodes, Prompt
 docs/                   diese Doku
@@ -89,13 +96,15 @@ Jobs, die Outlook abfragen, begrenzen sich selbst (wenige Mails je Lauf), merken
 | `GET /proposals/:id/ai-view` | anonymisierte Vorschau (Mailtext, Bilder, Anhänge, Prüfergebnis) |
 | `GET /proposals/:id/attachments[/:attId]` | Anhangsliste oder eine Datei (`?download=1`), `review-preview` mit dem Modul |
 | `POST /proposals/:id/match` | Überschrift für die Aufgabe vorschlagen |
-| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig) |
+| `POST /actions/:name` | Aktion ausführen (Header `x-mail-app: 1` nötig); neu: `bulk` (Sammelaktion), `draft-previous`, `contact`, `history-learn` |
 | `POST /refresh`, `POST /open-rules`, `GET /status` | neu laden, Regeldatei öffnen, Zustand |
 | `GET /search?q=&content=&names=&text=` | Treffer im Suchindex (`=0` schaltet einen Bereich ab) |
+| `GET /contacts/:adresse` | Absender-Profil: Zahlen, Regeln, Gedächtnis (Änderungen: Aktion `contact`) |
+| `GET /history-learn` | Stand des Lernens aus gesendeten Mails (starten: Aktion `history-learn`) |
 
 ## Erweitern
 **Neue Aktion:** `actions/meine-aktion.js` mit `export default { name: 'meine-aktion', async run(services, payload) { … } }`, in `actions/index.js` aufnehmen,
-in der Oberfläche `api.action('meine-aktion', {…})` aufrufen. `services` = `{ n8n, vault, rules, store, drafts, matcher, scheduler, review }`.
+in der Oberfläche `api.action('meine-aktion', {…})` aufrufen. `services` = `{ n8n, vault, rules, store, drafts, matcher, scheduler, review, actions }`.
 
 **Neuer Hintergrundjob:** ein Modul mit `run()`, in `server.js` als `[name, run, Sekunden]` in `extraJobs` eintragen (Vorbild: `lib/roles.js`).
 

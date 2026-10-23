@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import zlib from 'node:zlib';
 import { kindOf, readZip, extractText } from '../lib/extract-text.js';
 
@@ -73,4 +76,50 @@ test('Text und HTML', async () => {
 test('unbekannter Typ und leerer Text liefern einen Grund statt Text', async () => {
   assert.equal((await extractText({ name: 'a.exe' }, Buffer.from('x'))).text, null);
   assert.match((await extractText({ name: 'a.txt' }, Buffer.from('  '))).reason, /Kein Text/);
+});
+
+// Programmaufruf-Attrappe: pdftotext liefert `pdfText`, pdftoppm legt `pages` PNG-Dateien an, tesseract liest die Seitennummer aus dem Bild
+function fakeExec({ pdfText = '', pages = 0, calls = [] }) {
+  return async (cmd, args, opts) => {
+    calls.push([cmd, args]);
+    if (cmd === 'pdftotext') return pdfText;
+    if (cmd === 'pdftoppm') {
+      const prefix = args.at(-1);
+      for (let i = 1; i <= Math.min(pages, Number(args[args.indexOf('-l') + 1])); i += 1) fs.writeFileSync(`${prefix}-${String(i).padStart(2, '0')}.png`, `Seite ${i}`);
+      return '';
+    }
+    return `Gescannter ${opts.input.toString()}`;
+  };
+}
+
+test('PDF mit Text: kein OCR', async () => {
+  const calls = [];
+  const r = await extractText({ name: 'a.pdf' }, Buffer.from('x'), fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-')), undefined, fakeExec({ pdfText: 'Rechnung '.repeat(10), calls }));
+  assert.equal(r.text, 'Rechnung '.repeat(10).trim());
+  assert.deepEqual(calls.map((c) => c[0]), ['pdftotext']);
+});
+
+test('gescanntes PDF: Seiten werden per OCR gelesen, höchstens maxPages, Zwischendateien verschwinden', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-'));
+  const calls = [];
+  const r = await extractText({ name: 'scan.pdf' }, Buffer.from('x'), dir, { enabled: true, maxPages: 3 }, fakeExec({ pdfText: ' \n', pages: 12, calls }));
+  assert.equal(r.text, 'Gescannter Seite 1\n\nGescannter Seite 2\n\nGescannter Seite 3');
+  assert.equal(calls.find((c) => c[0] === 'pdftoppm')[1][calls.find((c) => c[0] === 'pdftoppm')[1].indexOf('-l') + 1], '3');
+  assert.deepEqual(fs.readdirSync(dir), []);
+});
+
+test('gescanntes PDF mit ausgeschaltetem OCR: kein Text erkannt', async () => {
+  const r = await extractText({ name: 'scan.pdf' }, Buffer.from('x'), fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-')), { enabled: false, maxPages: 10 }, fakeExec({ pdfText: '', pages: 2 }));
+  assert.equal(r.text, null);
+  assert.match(r.reason, /Kein Text/);
+});
+
+test('gescanntes PDF ohne tesseract: Grund steht im Ergebnis', async () => {
+  const exec = async (cmd, args) => {
+    if (cmd === 'pdftotext') return '';
+    if (cmd === 'pdftoppm') return fs.writeFileSync(`${args.at(-1)}-1.png`, 'x');
+    throw new Error('tesseract ist nicht installiert');
+  };
+  const r = await extractText({ name: 'scan.pdf' }, Buffer.from('x'), fs.mkdtempSync(path.join(os.tmpdir(), 'pdf-')), undefined, exec);
+  assert.deepEqual(r, { text: null, reason: 'tesseract ist nicht installiert' });
 });

@@ -5,10 +5,11 @@
 - **Claude-Code-CLI** (`claude`), installiert und angemeldet. Sie schreibt Entwürfe und ordnet Aufgaben zu.
 - **n8n** mit den zwei Workflows und der Datentabelle aus [n8n/README.md](../n8n/README.md).
 - **Obsidian-Vault** mit der Aufgabenliste (`📋 3 Aufgaben.md`).
-- Optional, für Textauszüge aus Anhängen: **`pdftotext`** (PDF) und **`tesseract`** (Bilder, OCR). Fehlt eines, steht im Entwurf nur
-  „Anhang konnte nicht gelesen werden“, und Claude tut nicht so, als kenne er den Inhalt.
+- Optional, für Textauszüge aus Anhängen: **`pdftotext`** und **`pdftoppm`** (beide aus Poppler, für PDF) und **`tesseract`** (Bilder und gescannte PDFs, OCR).
+  Fehlt eines, steht im Entwurf nur „Anhang konnte nicht gelesen werden“, und Claude tut nicht so, als kenne er den Inhalt.
+  Gescannte PDFs ohne Text liest die App per OCR (die ersten 10 Seiten); dafür braucht sie `pdftoppm` und `tesseract`.
 
-| System | pdftotext | tesseract |
+| System | pdftotext, pdftoppm | tesseract |
 |---|---|---|
 | Windows | Poppler für Windows, den Ordner `bin` in den `PATH` | Installer von UB Mannheim (mit Sprache „German“), in den `PATH` |
 | Linux (Fedora) | `sudo dnf install poppler-utils` | `sudo dnf install tesseract tesseract-langpack-deu` |
