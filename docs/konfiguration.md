@@ -31,6 +31,17 @@ der gilt, wenn der Schlüssel fehlt.
 | `claude.model` | Modell für Entwürfe, Zuordnung, Lernen, Vorlage `sonnet` | Pflicht |
 | `claude.timeoutMs` | Zeitlimit je Claude-Aufruf | 180000 |
 
+## Diktieren (`speech`, optional)
+
+Lokale Spracherkennung (siehe `install-speech.sh`). Alle Felder optional.
+
+| Schlüssel | Bedeutung | Standard |
+|---|---|---|
+| `speech.enabled` | `false` schaltet die lokale Erkennung ab | an |
+| `speech.model` | Whisper-Modell (`small`, `medium`, `large-v3` …) | `small` |
+| `speech.language` | Sprache der Erkennung | `de` |
+| `speech.python` | Python des venv | `<Datenordner>/speech-venv/bin/python` |
+
 ## Anhänge, Bilder, Suche (`attachments`)
 
 | Schlüssel | Bedeutung | Standard |

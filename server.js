@@ -22,6 +22,7 @@ import { createAddressBook } from './lib/address-book.js';
 import { createAddressJob } from './lib/address-job.js';
 import { createOutbox } from './lib/outbox.js';
 import { createTextTools } from './lib/text-tools.js';
+import { createSpeech, defaultPython } from './lib/speech.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
 
@@ -57,6 +58,15 @@ const learner = createLearner({ claude, rules, store, ownNames: cfg.ownNames, co
 const addressBook = createAddressBook({ file: dataFile('address-book.json'), ownAddresses: [cfg.ownAddress, ...(cfg.ownAliases || [])], log });
 const outbox = createOutbox({ n8n, store, getScheduler, drafts, addressBook, log });
 const textTools = createTextTools({ claude, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, pseudonymize: cfg.pseudonymize, nameOf: (a) => addressBook.search(a, { limit: 1 }).find((p) => p.address === String(a).toLowerCase())?.name || '' });
+const speech = createSpeech({
+  enabled: cfg.speech?.enabled !== false,
+  python: cfg.speech?.python || defaultPython(cfg.dataDir),
+  script: path.join(cfg.root, 'tools', 'stt-worker.py'),
+  model: cfg.speech?.model || 'small',
+  language: cfg.speech?.language || 'de',
+  tmpDir: dataFile('tmp'),
+  log,
+});
 const history = createHistoryLearner({ addressBook, n8n, claude, rules, contacts, store, ownNames: cfg.ownNames, ownAddress: cfg.ownAddress, log });
 
 // --- Module mit eigenem Hintergrundjob (Intervalle: docs/konfiguration.md)
@@ -83,8 +93,11 @@ if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
 scheduler = createScheduler({ n8n, drafts, learner, store, poll, log, decorate: review?.decorate, extraJobs });
 
 // --- Webserver (nur localhost)
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook, outbox, textTools });
+const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook, outbox, textTools, speech });
 const server = http.createServer(handler);
+// Der Arbeitsprozess der Spracherkennung soll mit der App enden
+for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => (speech.close(), process.exit(0)));
+process.on('exit', () => speech.close());
 server.listen(cfg.port, '127.0.0.1', () => {
   log(`Mail-App läuft auf http://localhost:${cfg.port}`);
   scheduler.start();

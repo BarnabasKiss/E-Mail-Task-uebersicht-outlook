@@ -708,46 +708,117 @@ class FakeRecognition {
   }
 }
 
-test('Diktieren: Knopf startet die Erkennung, fügt Gesagtes mit Satzzeichen an der Schreibmarke ein, Zwischenstand und Fehler stehen im Hinweis', opts, async () => {
+const noLocal = { speechStatus: async () => ({ available: false, reason: 'nicht eingerichtet' }) };
+
+test('Diktieren (Ausweichweg Browser-Erkennung): Zwischenstand, Einfügen mit Sprachbefehlen, Weiterlaufen nach Pausen, Fehler', opts, async () => {
   const { createDictation, dictationSupported } = await importApp('components/dictation.js');
   const win = { SpeechRecognition: FakeRecognition, Event: w.Event };
   assert.equal(dictationSupported(win), true);
   assert.equal(dictationSupported({}), false);
+  assert.equal(dictationSupported({ SpeechRecognition: FakeRecognition, navigator: { brave: {} } }), false, 'Brave: die Browser-Erkennung ist dort abgeschaltet und zählt nicht');
   resetBody();
   const ta = document.createElement('textarea');
   const hint = document.createElement('span');
   document.body.append(ta, hint);
   let texts = 0;
-  const d = createDictation({ textarea: ta, hint, win, onText: () => (texts += 1) });
+  const d = createDictation({ textarea: ta, hint, win, deps: noLocal, onText: () => (texts += 1) });
   document.body.append(d.node);
   assert.match(d.node.textContent, /Diktieren/);
   d.node.click();
+  await tick(10);
   assert.match(d.node.textContent, /Stopp/);
   assert.equal(d.node.getAttribute('aria-pressed'), 'true');
+  assert.match(hint.textContent, /Browsers/);
   const rec = FakeRecognition.last;
   assert.equal(rec.lang, 'de-AT');
-  assert.equal(rec.continuous, true);
   rec.say('hallo anna komma', false);
-  assert.match(hint.textContent, /hallo anna komma/, 'Zwischenstand');
-  assert.equal(ta.value, '', 'Zwischenstand steht noch nicht im Text');
+  assert.match(hint.textContent, /hallo anna komma/);
+  assert.equal(ta.value, '');
   rec.say('hallo anna komma neuer absatz ich melde mich punkt');
   assert.equal(ta.value, 'Hallo anna,\n\nich melde mich.');
   assert.equal(texts, 1);
   rec.say('danke dir');
   assert.equal(ta.value, 'Hallo anna,\n\nich melde mich. Danke dir');
-  rec.onend(); // Chrome beendet nach einer Pause: es läuft weiter
+  rec.onend();
   assert.equal(rec.started, 2);
   rec.onerror({ error: 'network' });
-  assert.match(hint.textContent, /nicht erreichbar.*Win\+H/);
-  assert.match(d.node.textContent, /Diktieren/, 'nach einem Fehler wieder bereit');
+  assert.match(hint.textContent, /install-speech\.sh/);
+  assert.match(d.node.textContent, /Diktieren/);
 });
 
-test('Diktieren: ohne Spracherkennung im Browser ist der Knopf gesperrt und nennt Alternativen', opts, async () => {
+test('Diktieren (lokal): Abschnitte der Aufnahme werden nacheinander erkannt und eingefügt, Stopp wartet auf den letzten', opts, async () => {
   const { createDictation } = await importApp('components/dictation.js');
   resetBody();
-  const d = createDictation({ textarea: document.createElement('textarea'), win: { Event: w.Event } });
-  assert.ok(d.node.disabled);
-  assert.match(d.node.title, /Chrome oder Edge|Win\+H/);
+  const ta = document.createElement('textarea');
+  const hint = document.createElement('span');
+  document.body.append(ta, hint);
+  let onSegment;
+  const stopped = [];
+  const transcribed = [];
+  const answers = { a: 'Hallo Anna, wir treffen uns morgen.', b: 'Bitte bring die Unterlagen mit.' };
+  const deps = {
+    speechStatus: async () => ({ available: true, model: 'small' }),
+    startRecorder: async (o) => ((onSegment = o.onSegment), { stop: async () => { stopped.push(true); await onSegment({ id: 'b' }); } }),
+    transcribe: async (blob) => (transcribed.push(blob.id), new Promise((r) => setTimeout(() => r(answers[blob.id]), blob.id === 'a' ? 40 : 5))),
+  };
+  const d = createDictation({ textarea: ta, hint, win: { Event: w.Event }, deps });
+  document.body.append(d.node);
+  assert.ok(!d.node.disabled);
+  d.node.click();
+  await tick(10);
+  assert.match(hint.textContent, /lokal, ohne Netz/);
+  assert.match(d.node.textContent, /Stopp/);
+  onSegment({ id: 'a' });
+  await tick(5);
+  assert.match(hint.textContent, /wird erkannt/);
+  d.node.click(); // Stopp: der zweite Abschnitt kommt dazu, beide werden der Reihe nach eingefügt
+  assert.match(d.node.textContent, /Erkenne/);
+  assert.ok(d.node.disabled, 'während der Abschlusserkennung gesperrt');
+  await tick(120);
+  assert.deepEqual(transcribed, ['a', 'b']);
+  assert.equal(ta.value, 'Hallo Anna, wir treffen uns morgen. Bitte bring die Unterlagen mit.');
+  assert.equal(stopped.length, 1);
+  assert.match(d.node.textContent, /Diktieren/);
+  assert.ok(!d.node.disabled);
+});
+
+test('Diktieren (lokal): Fehler beim Erkennen und beim Mikrofon erscheinen verständlich, danach ist der Knopf wieder bereit', opts, async () => {
+  const { createDictation } = await importApp('components/dictation.js');
+  resetBody();
+  const ta = document.createElement('textarea');
+  const hint = document.createElement('span');
+  document.body.append(ta, hint);
+  let onSegment;
+  const base = { speechStatus: async () => ({ available: true }), transcribe: async () => { throw new Error('Die Spracherkennung hat zu lange gebraucht.'); } };
+  const d = createDictation({ textarea: ta, hint, win: { Event: w.Event }, deps: { ...base, startRecorder: async (o) => ((onSegment = o.onSegment), { stop: async () => {} }) } });
+  d.node.click();
+  await tick(10);
+  await onSegment({ id: 'x' });
+  assert.match(hint.textContent, /zu lange gebraucht/);
+  assert.equal(ta.value, '');
+  d.stop();
+  await tick(10);
+  const denied = createDictation({ textarea: ta, hint, win: { Event: w.Event }, deps: { ...base, startRecorder: async () => { throw Object.assign(new Error('x'), { name: 'NotAllowedError' }); } } });
+  denied.node.click();
+  await tick(10);
+  assert.match(hint.textContent, /Mikrofon nicht benutzen/);
+  assert.match(denied.node.textContent, /Diktieren/);
+});
+
+test('Diktieren: ohne lokale Erkennung und ohne Browser-Erkennung (Brave) erklärt der Hinweis die Einrichtung', opts, async () => {
+  const { createDictation } = await importApp('components/dictation.js');
+  resetBody();
+  const hint = document.createElement('span');
+  document.body.append(hint);
+  const win = { Event: w.Event, SpeechRecognition: FakeRecognition, navigator: { brave: {}, mediaDevices: { getUserMedia() {} } }, MediaRecorder: class {} };
+  const d = createDictation({ textarea: document.createElement('textarea'), hint, win, deps: noLocal });
+  d.node.click();
+  await tick(10);
+  assert.match(hint.textContent, /nicht eingerichtet.*install-speech\.sh/);
+  assert.match(d.node.textContent, /Diktieren/, 'wieder bereit');
+  const none = createDictation({ textarea: document.createElement('textarea'), win: { Event: w.Event } });
+  assert.ok(none.node.disabled);
+  assert.match(none.node.title, /Brave, Chrome oder Edge|Win\+H/);
 });
 
 // --- Antwort: Werkzeuge, gemerkte Änderungen, Planen

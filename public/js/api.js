@@ -18,6 +18,14 @@ export const api = {
   thread: (id, { before = '', limit = 10 } = {}) => request('GET', `/api/proposals/${id}/thread?limit=${limit}${before ? `&before=${encodeURIComponent(before)}` : ''}`),
   suggest: (q, exclude = []) => request('GET', `/api/address-book/suggest?q=${encodeURIComponent(q)}${exclude.length ? `&exclude=${encodeURIComponent(exclude.join(','))}` : ''}`).then((r) => r.items),
   addressBook: ({ q = '', source = '', limit = 200 } = {}) => request('GET', `/api/address-book?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}&limit=${limit}`),
+  speech: () => request('GET', '/api/speech'),
+  /** Aufnahme (Blob) lokal erkennen lassen -> Text */
+  async transcribe(blob) {
+    const res = await fetch('/api/transcribe', { method: 'POST', headers: { 'content-type': blob.type || 'audio/webm', 'x-mail-app': '1' }, body: blob });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Fehler ${res.status}`);
+    return data.text;
+  },
   outbox: () => request('GET', '/api/outbox'),
   composeInfo: () => request('GET', '/api/compose-info'),
   contact: (address) => request('GET', `/api/contacts/${encodeURIComponent(address)}`),

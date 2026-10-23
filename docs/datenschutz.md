@@ -51,8 +51,7 @@ eine Telefon- oder lange Zahl, wird **nichts an Claude gesendet**: Der Entwurf e
 ## Textwerkzeuge und Spracheingabe
 - **Rechtschreibung, Struktur, Lücken suchen und Betreff vorschlagen** laufen über das lokale `claude -p`, mit demselben Schutz wie die Entwürfe: Der Text geht pseudonymisiert an Claude (Namen, Nummern, Adressen als Platzhalter)
   und wird danach zurückübersetzt. Fehlt in Claudes Antwort ein Platzhalter, wird der Vorschlag verworfen. Bei „Lücken“ geht bei Antworten zusätzlich die Mail mit, auf die du antwortest (ebenfalls pseudonymisiert).
-- **Diktieren** nutzt die Spracherkennung deines Browsers, nicht die App. In Chrome und Edge wird das Audio dafür an den Anbieter des Browsers geschickt; diese Erkennung ist also nicht lokal. Für vertrauliche Inhalte
-  lieber das Diktat des Betriebssystems verwenden (Windows: Win+H) oder nicht diktieren.
+- **Diktieren** läuft lokal (faster-whisper auf deinem Rechner, `install-speech.sh`); Audio verlässt den Rechner nicht, nur der einmalige Modell-Download geht ins Netz. Ohne diese Einrichtung fällt die App in Chrome/Edge auf die Browser-Erkennung zurück, bei der das Audio an den Anbieter des Browsers geht; in Brave gibt es diesen Weg nicht.
 - **Entwürfe und geplante Mails** liegen nur lokal in `state.json` im Datenordner (mit echten Inhalten, wie die Entwürfe der Antworten). Eine geplante Mail geht erst zur Sendezeit an Outlook.
 
 ## Adressbuch

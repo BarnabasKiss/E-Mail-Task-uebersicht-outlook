@@ -11,7 +11,6 @@ const VARIANTS = [
   { id: 'freundlicher', label: 'Freundlicher', title: 'Den Text im Feld freundlicher formulieren', needsText: true },
   { id: 'ablehnung', label: 'Ablehnung', title: 'Neu schreiben: höfliche Ablehnung, ohne einen Grund zu erfinden', needsText: false },
 ];
-const VARIANT_LABEL = Object.fromEntries(VARIANTS.map((v) => [v.id, v.label.toLowerCase()]));
 
 export function createDraftPanel({ draft, error, isTest, needsReply = true, suggest, reply, ownSignature = () => '', onRegenerate, onPrevious, onOutlookDraft, onOutlookDraftDelete, onSend, onArchive, onSchedule, onUnschedule, onImprove, onSaveEdit, undoSeconds }) {
   const area = el('textarea', { class: 'draft-text', rows: 7, 'aria-label': 'Antwortentwurf', placeholder: 'Der Entwurf erscheint hier …' });
@@ -136,7 +135,7 @@ export function createDraftPanel({ draft, error, isTest, needsReply = true, sugg
     if (busy) {
       status.classList.add('busy');
       status.textContent = 'Claude schreibt … (10 bis 30 Sekunden)';
-    } else if (d) status.textContent = `${d.variant ? `Variante: ${VARIANT_LABEL[d.variant] || d.variant}. ` : ''}Bereit. Änderungen hier werden nicht gespeichert.`;
+    } else if (d) status.textContent = '';
     else if (isTest) status.textContent = 'Testnachricht: Entwürfe nur per Klick auf „Jetzt erzeugen“.';
     else if (!needsReply && !e) status.textContent = 'Laut Bewertung ist keine Antwort nötig. Du kannst trotzdem eine schreiben oder erzeugen lassen.';
     else if (!e) {
