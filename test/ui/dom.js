@@ -2,7 +2,7 @@
 // jsdom ist nur eine Entwicklungs-Abhängigkeit (npm install). Fehlt es, überspringen sich die UI-Tests.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const SKIP = 'jsdom nicht installiert (npm install)';
@@ -38,5 +38,6 @@ export async function setupDom() {
   return w;
 }
 
-export const importApp = (rel) => import(path.join(root, 'public/js', rel));
+// Unter Windows verlangt der Import absolute Pfade als file://-URL
+export const importApp = (rel) => import(pathToFileURL(path.join(root, 'public/js', rel)).href);
 export const tick = (ms = 10) => new Promise((r) => setTimeout(r, ms));
