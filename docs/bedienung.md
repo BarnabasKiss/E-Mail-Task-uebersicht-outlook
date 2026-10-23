@@ -47,8 +47,9 @@ Geschäftsführung, Beschwerde, Behörde, Datenleck, Fristablauf, oder eine Fris
 - **Zusammenfassung / Verlauf** per Umschalter. *Zusammenfassung* ist ein Absatz aus Zusammenfassung und Begründung. *Verlauf* zeigt die Konversation als Nachrichten
   (siehe unten). Das **Auge** darüber schaltet zwischen *Original* und *Anonymisiert* um; anonymisiert zeigt es die geöffnete Mail so, wie Claude sie bekäme
   (siehe [Datenschutz](datenschutz.md#was-geht-an-claude-ansehen)).
-- **Aufgabe** und **Antwortentwurf** stehen bei breitem Bildschirm (Detailbereich ab etwa 1080 px) in einer **rechten Spalte**, die beim Scrollen stehen bleibt, die Aufgabe oben,
-  der Entwurf darunter. Links stehen Absender, Anhänge, Zusammenfassung und Verlauf. Bei schmalem Bildschirm steht alles untereinander.
+- **Aufgabe** steht immer in **einer Zeile** direkt über Zusammenfassung/Verlauf. Bei breitem Bildschirm (Detailbereich ab etwa 1180 px, die ganze Breite wird genutzt) steht der
+  **Antwortentwurf** in einer **rechten Spalte**, die beim Scrollen stehen bleibt; links stehen Absender, Anhänge, Aufgabe, Zusammenfassung und Verlauf.
+  Bei schmalerem Bildschirm steht alles untereinander, und nur wenn die Breite gar nicht reicht, bricht die Aufgabenzeile um.
 - **Aufgabe** in einer Zeile: Text, Überschrift in `📋 3 Aufgaben.md` (Vorschlag per Claude), Frist, „Wichtig“-Stern, **Übernehmen**.
   Die Mail bleibt danach in „Offen“; die Zeile zeigt „✓ Aufgabe übernommen“ mit „Weitere Aufgabe“.
 - **Antwortentwurf:** wird im Hintergrund erzeugt, ist editierbar und kopierbar und lässt sich neu erzeugen. Darunter die Werkzeuge:

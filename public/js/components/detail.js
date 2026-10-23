@@ -1,6 +1,6 @@
 // Die Detailansicht rechts: Kopf mit Aktionen, darunter bei breitem Bildschirm zwei Spalten.
-//  links:  Absender und Empfänger, Anhänge, Zusammenfassung/Verlauf
-//  rechts: Aufgabe (oben) und Antwortentwurf, bleibt beim Scrollen stehen
+//  links:  Absender und Empfänger, Anhänge, Aufgabe (eine Zeile, über Zusammenfassung/Verlauf), Zusammenfassung/Verlauf
+//  rechts: Antwortentwurf, bleibt beim Scrollen stehen
 // Bei schmalem Bildschirm steht alles untereinander. Der Verlauf steht in mail-body.js und thread.js, die Anhangsleiste in attachments-box.js.
 import { el, avatar, badge, formatFull, formatDay, roleChip, URGENCY_LABEL, FILED_LABEL } from '../util.js';
 import { icon } from '../icons.js';
@@ -160,8 +160,8 @@ export function renderDetail(container, data, ctx) {
   const message = el('section', { class: 'card msg', 'aria-label': 'Inhalt' }, el('div', { class: 'seg-row' }, el('div', { class: 'seg', role: 'tablist' }, tabSummary, tabMessage), body.eye), summaryView, body.node);
   setView(ctx.view === 'message' ? 'message' : 'summary');
 
-  const right = taskRow?.node || draftPanel?.node ? el('div', { class: 'd-right' }, taskRow?.node, draftPanel?.node) : null;
-  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, el('div', { class: 'd-main' }, el('div', { class: 'd-left' }, people, attachmentsBox, message), right)));
+  const right = draftPanel ? el('div', { class: 'd-right' }, draftPanel.node) : null;
+  container.replaceChildren(el('article', { class: 'detail' }, head, testBanner, doneBanner, el('div', { class: 'd-main' }, el('div', { class: 'd-left' }, people, attachmentsBox, taskRow?.node, message), right)));
   container.scrollTop = 0;
   if (draftPanel) body.preload().then(() => draftPanel.refresh());
 

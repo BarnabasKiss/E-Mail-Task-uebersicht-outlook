@@ -262,12 +262,13 @@ test('Verlauf: "Ältere Nachrichten laden" holt die nächste Seite und stellt si
   assert.match(b2.querySelector('.thread .hint').textContent, /nur diese Nachricht/);
 });
 
-test('Layout: rechts steht die Aufgabe über dem Antwortentwurf, links Person, Anhänge und Verlauf', opts, async () => {
+test('Layout: rechts nur der Antwortentwurf, links Person, Anhänge, Aufgabe (über dem Verlauf) und Verlauf', opts, async () => {
   const { box } = await render({ proposal: proposal({ antwort_noetig: true }), draft: { text: 'Hallo', previous: null } });
   const left = box.querySelector('.d-left');
   const right = box.querySelector('.d-right');
   assert.ok(left.querySelector('.people-block') && left.querySelector('.msg') && !left.querySelector('.draft'));
-  assert.deepEqual([...right.children].map((c) => c.getAttribute('aria-label')), ['Aufgabe', 'Antwortentwurf']);
+  assert.deepEqual([...left.children].map((c) => c.getAttribute('aria-label') || c.className).slice(-2).map((x) => (/Aufgabe|task/.test(x) ? 'Aufgabe' : 'Inhalt')), ['Aufgabe', 'Inhalt'], 'Aufgabe direkt über Zusammenfassung/Verlauf');
+  assert.deepEqual([...right.children].map((c) => c.getAttribute('aria-label')), ['Antwortentwurf']);
 });
 
 const reply = (o = {}) => ({ sender: 'helga@partner.at', only: { to: ['helga@partner.at'], cc: [] }, all: { to: ['helga@partner.at', 'paul@partner.at'], cc: ['c@x.at'] }, draft: null, ...o });

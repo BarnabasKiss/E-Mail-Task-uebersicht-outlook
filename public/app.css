@@ -484,16 +484,11 @@ a.att:hover { background: var(--hover); }
 /* ---- Zwei Spalten bei breitem Detailbereich: links Person, Anhänge, Zusammenfassung und Verlauf, rechts Aufgabe und Antwortentwurf */
 .d-main { display: grid; gap: 10px; min-width: 0; }
 .d-left, .d-right { display: grid; gap: 10px; min-width: 0; align-content: start; }
-@container pane (min-width: 1080px) {
-  .detail { max-width: 1680px; }
-  .d-main { grid-template-columns: minmax(0, 1fr) minmax(380px, 440px); gap: 18px; align-items: start; }
+/* Zwei Spalten erst, wenn links Platz für die Aufgabenzeile in einer Zeile bleibt (etwa 720 px); die ganze Breite wird genutzt */
+@container pane (min-width: 1180px) {
+  .detail { max-width: none; }
+  .d-main { grid-template-columns: minmax(0, 1fr) clamp(420px, 30%, 640px); gap: 18px; align-items: start; }
   .d-right { position: sticky; top: 10px; max-height: calc(100vh - 90px); overflow: auto; padding-right: 2px; }
-  .d-right .task-row { flex-wrap: wrap; }
-  .d-right .task-text { flex-basis: 100%; order: -1; }
-  .d-right .task-icon { display: none; }
-  .d-right .task-heading { flex: 1 1 180px; }
-  .d-right .task-note { padding-left: 4px; }
-  .d-right .draft-tools { gap: 5px; }
 }
 
 /* ---- Verlauf als Nachrichten */
@@ -540,14 +535,10 @@ a.att:hover { background: var(--hover); }
 
 /* Spaltenkinder dürfen schmaler werden als ihr Inhalt, sonst läuft die rechte Spalte über */
 .d-left > *, .d-right > * { min-width: 0; }
-@container pane (min-width: 1080px) {
-  .d-main { grid-template-columns: minmax(0, 1fr) minmax(400px, 460px); }
+@container pane (min-width: 1180px) {
   .d-right { overflow-x: hidden; }
   .d-right .card-head { flex-wrap: wrap; gap: 6px 8px; }
   .d-right .draft-status { order: 9; flex: 1 1 100%; }
-  .d-right .task-row > * { min-width: 0; }
-  .d-right .task-row input[type="text"], .d-right .task-row select { flex: 1 1 140px; }
-  .d-right .task-row input[type="date"] { flex: 0 0 138px; }
   .d-right .draft-tools .draft-hint { flex-basis: 100%; }
 }
 
