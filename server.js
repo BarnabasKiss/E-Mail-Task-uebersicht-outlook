@@ -25,6 +25,7 @@ import { createTextTools } from './lib/text-tools.js';
 import { createSpeech, defaultPython } from './lib/speech.js';
 import { createScheduler } from './lib/scheduler.js';
 import { createApi } from './lib/api.js';
+import { createAuth, loadSecret } from './lib/auth.js';
 
 const cfg = loadConfig();
 const log = (m) => console.log(`${new Date().toISOString()} ${m}`);
@@ -92,13 +93,16 @@ if (review) extraJobs.push(['review', review.run, poll.reviewSec ?? 90]);
 
 scheduler = createScheduler({ n8n, drafts, learner, store, poll, log, decorate: review?.decorate, extraJobs });
 
-// --- Webserver (nur localhost)
-const handler = createApi({ cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook, outbox, textTools, speech });
+// --- Webserver (ohne Passwort nur localhost, mit Passwort auch im Netz)
+const loopback = ['127.0.0.1', 'localhost', '::1'].includes(cfg.host);
+if (!cfg.auth.password && !loopback) throw new Error('MAIL_APP_PASSWORD fehlt: ohne Anmeldung lauscht die App nur auf 127.0.0.1');
+const auth = createAuth({ ...cfg.auth, secret: loadSecret({ env: process.env.MAIL_APP_SESSION_SECRET, file: dataFile('session-secret') }) });
+const handler = createApi({ auth, cfg, scheduler, n8n, vault, rules, store, drafts, matcher, claude, attachments, review, roles, attInfo, docIndex, contacts, history, addressBook, outbox, textTools, speech });
 const server = http.createServer(handler);
 // Der Arbeitsprozess der Spracherkennung soll mit der App enden
 for (const sig of ['SIGTERM', 'SIGINT']) process.on(sig, () => (speech.close(), process.exit(0)));
 process.on('exit', () => speech.close());
-server.listen(cfg.port, '127.0.0.1', () => {
-  log(`Mail-App läuft auf http://localhost:${cfg.port}`);
+server.listen(cfg.port, cfg.host, () => {
+  log(`Mail-App läuft auf http://${cfg.host}:${cfg.port}${auth.enabled ? ' (mit Anmeldung)' : ''}`);
   scheduler.start();
 });

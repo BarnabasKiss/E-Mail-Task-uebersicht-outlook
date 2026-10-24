@@ -1,0 +1,12 @@
+.git
+.github
+.claude
+node_modules
+test
+docs
+config.json
+Mail-Regeln.md
+*.md
+*.ps1
+*.vbs
+*.url

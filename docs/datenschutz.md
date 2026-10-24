@@ -8,7 +8,7 @@ Grundsatz: **Claude sieht nie eine Datei oder ein Bild, nur Text, und der ist vo
 - **Lokal** (`<Datenordner>`): Entwürfe, Zuordnungen, Rollen und der Suchindex (`doc-index.json` mit Anhangstext, Empfängern und vollem Mailtext).
   Nur auf diesem Rechner, nicht synchronisiert. Nicht in eine Cloud legen.
 - `config.json` enthält den n8n-Token und steht nicht im Repo. Der Token lässt sich in n8n jederzeit neu vergeben.
-- Die Oberfläche ist nur über `localhost` erreichbar (andere Host-Namen werden abgelehnt), schreibende Aufrufe brauchen den Header `x-mail-app`.
+- Die Oberfläche ist (lokal) nur über `localhost` erreichbar; im Container mit Anmeldung, siehe [Docker](docker.md#anmeldung) (andere Host-Namen werden abgelehnt), schreibende Aufrufe brauchen den Header `x-mail-app`.
   Anhänge werden nie als HTML oder Skript ausgeliefert: PDF und gängige Bilder inline, alles andere als Textvorschau oder Download mit
   `Content-Security-Policy: sandbox`.
 

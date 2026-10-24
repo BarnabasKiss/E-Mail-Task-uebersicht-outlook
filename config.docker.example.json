@@ -1,0 +1,32 @@
+{
+  "port": 4711,
+  "dataDir": "/data",
+  "ownAddress": "vorname.nachname@firma.at",
+  "ownAliases": [],
+  "ownNames": ["vorname", "nachname"],
+  "pseudonymize": true,
+  "n8n": {
+    "url": "https://DEINE-N8N-ADRESSE/webhook/mail-app",
+    "token": "HIER-DEN-TOKEN-AUS-DEM-N8N-WORKFLOW-EINTRAGEN",
+    "timeoutMs": 60000
+  },
+  "rulesFile": "/data/Mail-Regeln.md",
+  "attachments": { "readByAi": true, "ocrInline": true, "ocrPdf": true, "searchDocs": true, "review": { "enabled": true, "maxPerRun": 3, "logPrompts": true } },
+  "vault": {
+    "dir": "/data/vault",
+    "tasksFile": "📋 3 Aufgaben.md"
+  },
+  "claude": {
+    "path": "claude",
+    "model": "sonnet",
+    "timeoutMs": 180000
+  },
+  "speech": { "enabled": false },
+  "poll": {
+    "proposalsSec": 120,
+    "archiveSec": 300,
+    "repliesSec": 600,
+    "draftsSec": 60,
+    "learnSec": 300
+  }
+}

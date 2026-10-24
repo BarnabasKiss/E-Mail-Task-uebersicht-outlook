@@ -6,6 +6,7 @@ async function request(method, url, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && data.login) location.href = '/login';
   if (!res.ok) throw new Error(data.error || `Fehler ${res.status}`);
   return data;
 }

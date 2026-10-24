@@ -41,6 +41,7 @@ optionale Programme für PDF und OCR und alles Weitere: [docs/installation.md](d
 ## Dokumentation
 | | |
 |---|---|
+| [docs/docker.md](docs/docker.md) | Betrieb im Container auf einem Server, Anmeldung, Umgebungsvariablen |
 | [docs/installation.md](docs/installation.md) | Einrichten, Starten und Autostart (Windows, Linux, macOS), PDF und OCR installieren, Datenordner |
 | [docs/bedienung.md](docs/bedienung.md) | Liste, Tags, Detailansicht, Tastatur, Tab-Symbol und Benachrichtigungen, Testmails |
 | [docs/suche.md](docs/suche.md) | erweiterte Suche, Filter, Suchindex |
