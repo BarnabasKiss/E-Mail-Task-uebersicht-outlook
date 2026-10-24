@@ -31,6 +31,8 @@ let rulesCall = null;
 let sigManual = null;
 let sigImage = null;
 let sigCall = null;
+let tasksCall = null;
+let tasksPath = '/vault/Aufgaben.md';
 const rulesDoc = () => ({ file: '/x/Mail-Regeln.md', version: 'v1', text: '# Regeln', title: 'Regeln', intro: ['Diese Datei steuert die App.'], sections: [{ heading: 'Grundton', level: 2, hints: ['Stil für Entwürfe.'], rules: rulesList.map((text, index) => ({ index, text })) }, { heading: 'Gelernt', level: 2, hints: [], rules: [] }] });
 let book = [{ name: 'Helga Brunner', address: 'helga@y.at', company: '', sources: ['mail', 'sent'], count: 4, sentCount: 2, last: '2026-10-22T08:00:00Z' }];
 let bookCall = null;
@@ -77,6 +79,13 @@ globalThis.fetch = async (url, init = {}) => {
     else if (b.op === 'remove-image') sigImage = null;
     else sigManual = b.op === 'set' ? b.text.trim() : null;
     return json({ signature: sigManual ?? 'Barni Kiss', manual: sigManual, detected: 'Barni Kiss', image: sigImage });
+  }
+  if (p === '/api/tasks-file') return json({ path: tasksPath, exists: true, writable: true, headings: 3, configured: '/vault/Aufgaben.md', custom: tasksPath !== '/vault/Aufgaben.md' });
+  if (p === '/api/browse') return json({ dir: '/vault', parent: '/', dirs: ['Projekte'], files: ['Aufgaben.md', 'Andere.md'] });
+  if (p === '/api/actions/tasks-file') {
+    tasksCall = JSON.parse(init.body);
+    tasksPath = tasksCall.op === 'set' ? tasksCall.path : '/vault/Aufgaben.md';
+    return json({});
   }
   if (p === '/api/address-book') return json({ total: book.length, items: book.filter((b) => !u.searchParams.get('q') || b.name.toLowerCase().includes(u.searchParams.get('q'))), stats: { total: book.length, mail: 1, manuell: book.length - 1 } });
   m = /^\/api\/contacts\/(.+)$/.exec(p);
@@ -511,11 +520,11 @@ test('Kopfzeile: Symbole an den Knöpfen und Zähler am Knopf "Entwürfe" (rot b
   assert.ok(badge.classList.contains('bad'), 'ein geplanter Versand ist fehlgeschlagen');
 });
 
-test('Optionen: ein Menü mit Kontakte, Signatur, Lernen und Regeln; die offene Ansicht markiert Menü und Eintrag', opts, async () => {
+test('Optionen: ein Menü mit Kontakte, Signatur, Aufgabenliste, Lernen und Regeln; die offene Ansicht markiert Menü und Eintrag', opts, async () => {
   assert.equal($('options-menu').hidden, true);
   $('options-link').click();
   assert.equal($('options-menu').hidden, false);
-  assert.deepEqual([...$('options-menu').querySelectorAll('.menu-item')].map((b) => b.textContent.trim()), ['Kontakte', 'Signatur', 'Lernen', 'Regeln']);
+  assert.deepEqual([...$('options-menu').querySelectorAll('.menu-item')].map((b) => b.textContent.trim()), ['Kontakte', 'Signatur', 'Aufgabenliste', 'Lernen', 'Regeln']);
   $('rules-link').click();
   await tick(80);
   assert.equal($('options-menu').hidden, true, 'schließt nach der Wahl');
@@ -523,6 +532,27 @@ test('Optionen: ein Menü mit Kontakte, Signatur, Lernen und Regeln; die offene 
   assert.equal($('rules-link').getAttribute('aria-current'), 'page');
   assert.equal(document.querySelector('#detail .rules h2').textContent, 'Regeln');
   assert.deepEqual([...document.querySelectorAll('#detail .rl-section h3')].map((h) => h.firstChild.textContent), ['Grundton', 'Gelernt']);
+});
+
+test('Aufgabenliste: Datei im Ordnerbaum wählen, speichern, auf config.json zurückstellen', opts, async () => {
+  $('tasks-link').click();
+  await tick(80);
+  const input = () => document.querySelector('#detail .tk-path');
+  const btn = (t) => [...document.querySelectorAll('#detail .btn')].find((b) => b.textContent.includes(t));
+  assert.equal(input().value, '/vault/Aufgaben.md');
+  assert.equal($('options-link').getAttribute('aria-current'), 'page');
+  btn('Durchsuchen').click();
+  await tick(80);
+  [...document.querySelectorAll('#detail .tk-item.file')].find((b) => b.textContent === 'Andere.md').click();
+  assert.equal(input().value, '/vault/Andere.md');
+  btn('Speichern').click();
+  await tick(80);
+  assert.deepEqual(tasksCall, { op: 'set', path: '/vault/Andere.md' });
+  assert.match(document.querySelector('#detail .badge:last-child').textContent, /Von Hand/);
+  btn('Standard aus config.json').click();
+  await tick(80);
+  assert.equal(tasksCall.op, 'reset');
+  assert.equal(input().value, '/vault/Aufgaben.md');
 });
 
 test('Signatur: von Hand speichern, "Keine Signatur", zurück zur automatischen Erkennung', opts, async () => {

@@ -205,3 +205,6 @@ Vorschau der Tabellenzeile. Zum Ausprobieren:
 
 Der Testeintrag **TEST-VERLAUF-001** („TEST Verlauf: Rechnung 2026-0815 prüfen (dringend)“) deckt fast alles ab: Aufgabe mit Frist, „Wichtig“-Tags, Anhänge aller Typen, ein Bild im Text mit OCR,
 ein Verlauf aus 14 Nachrichten von vier Personen mit CC, Signaturen, zitiertem Text und einer „Gesendet von meinem iPhone“-Zeile, Namen, Kennzeichen, Telefonnummer und IBAN für die Anonymisierung.
+
+## Aufgabenliste wählen (Optionen → Aufgabenliste)
+Zeigt, in welche Markdown-Datei „Aufgabe übernehmen“ schreibt, und wie viele ###-Überschriften sie hat. Den vollständigen Pfad eintippen oder mit **Durchsuchen** durch die Ordner des Rechners gehen, auf dem die App läuft (im Container z. B. `/data/vault`). Die Datei muss schon existieren und beschreibbar sein. Die Wahl liegt in `state.json` und gilt vor `vault` in `config.json`; **Standard aus config.json** stellt sie zurück.

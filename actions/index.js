@@ -17,7 +17,8 @@ import { composeDraft, composeSend, composeDiscard } from './compose.js';
 import { textImprove, textSubject } from './text-tools.js';
 import { sendCheck } from './send-check.js';
 import { signature } from './signature.js';
+import { tasksFile } from './tasks-file.js';
 import { mailDraftSave, mailDraftDelete, schedule, scheduleCancel, scheduleNow, replyEdit } from './outbox.js';
 import bulk from './bulk.js';
 
-export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, book, rulesAction, composeDraft, composeSend, composeDiscard, textImprove, textSubject, sendCheck, signature, mailDraftSave, mailDraftDelete, schedule, scheduleCancel, scheduleNow, replyEdit, bulk].map((a) => [a.name, a]));
+export const actions = Object.fromEntries([accept, archive, del, restore, snooze, regenerateDraft, reviewRevert, contact, historyLearn, outlookDraft, outlookDraftDelete, outlookSend, book, rulesAction, composeDraft, composeSend, composeDiscard, textImprove, textSubject, sendCheck, signature, tasksFile, mailDraftSave, mailDraftDelete, schedule, scheduleCancel, scheduleNow, replyEdit, bulk].map((a) => [a.name, a]));

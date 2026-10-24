@@ -24,7 +24,7 @@ Muss für uid 1000 beschreibbar sein. Inhalt: `config.json` (Vorlage `config.doc
 `vault/` (Aufgabenliste), `home/` (Einstellungen der Claude-CLI). Siehe [Installation](installation.md#datenordner).
 
 ## Grenzen im Container
-- Diktieren (`speech`) ist aus (kein Python-Modell im Image). Der Browser-Diktat-Knopf meldet „abgeschaltet“.
+- Diktieren läuft mit der Spracherkennung im Image (`speech.python` = `/opt/speech-venv/bin/python`). Das Modell (1,6 GB) lädt die App beim ersten Diktat nach `/data/hf-cache`. Der Browser erlaubt das Mikrofon **nur über HTTPS** oder `localhost`: im LAN per `http://192.168.68.62:4711` geht es nicht, über den Cloudflare-Tunnel schon.
 - „In Editor öffnen“ bei den Regeln und das Öffnen lokaler Dateien gibt es nicht; die Regeln bearbeitet man in der App.
 - Der Obsidian-Vault muss auf dem Server liegen (`/data/vault`). Er wird nur für die Aufgabenliste gebraucht.
 

@@ -9,6 +9,7 @@ import { renderProfile } from './components/profile.js';
 import { renderLearnPanel } from './components/learn-panel.js';
 import { renderRules } from './components/rules-view.js';
 import { renderSignature } from './components/signature-view.js';
+import { renderTasksFile } from './components/tasks-view.js';
 import { prepareSignatureImage } from './signature-image.js';
 import { renderContacts } from './components/contacts-view.js';
 import { renderCompose } from './components/compose-view.js';
@@ -24,7 +25,7 @@ import { renderMarkBar } from './components/mark-bar.js';
 import { snoozeOptions } from './snooze-options.js';
 
 const $ = (id) => document.getElementById(id);
-const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, sig: null, signatureManual: null, signatureImage: null, compose: null };
+const state = { items: [], archive: [], ownAddress: '', tab: 'offen', selectedId: null, view: 'summary', controller: null, draftTimer: null, markMode: 'actions', profile: null, learning: false, learnTimer: null, profileTab: 'mails', contacts: null, outbox: null, rules: null, sig: null, signatureManual: null, signatureImage: null, tasks: null, compose: null };
 const marking = createMarking();
 
 const DELETE_TEXT =
@@ -56,8 +57,8 @@ const attention = createAttentionSignal({ onOpen: (id) => showItem(id) });
 
 // Kopfzeile: welche Ansicht gerade offen ist (Neue Mail, Entwürfe, Kontakte, Lernen), gemerkt über aria-current
 function syncNav() {
-  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning, 'rules-link': !!state.rules, 'signature-link': !!state.sig };
-  open['options-link'] = open['contacts-link'] || open['learn-link'] || open['rules-link'] || open['signature-link'];
+  const open = { 'compose-link': !!state.compose, 'outbox-link': !!state.outbox, 'contacts-link': !!state.contacts, 'learn-link': !!state.learning, 'rules-link': !!state.rules, 'signature-link': !!state.sig, 'tasks-link': !!state.tasks };
+  open['options-link'] = open['contacts-link'] || open['learn-link'] || open['rules-link'] || open['signature-link'] || open['tasks-link'];
   for (const [id, on] of Object.entries(open)) {
     if (on) $(id).setAttribute('aria-current', 'page');
     else $(id).removeAttribute('aria-current');
@@ -132,7 +133,7 @@ async function loadList(fn = api.proposals) {
 
 function clearDetail() {
   stopLearnPolling();
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   state.selectedId = null;
   state.profile = null;
   state.controller = null;
@@ -308,7 +309,7 @@ async function openCompose(prefill = {}) {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   const info = await api.composeInfo().catch(() => ({ signature: '' }));
   const handle = { view: null };
   state.compose = handle;
@@ -393,7 +394,7 @@ function openOutbox() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.rules = state.sig = null;
+  state.contacts = state.rules = state.sig = state.tasks = null;
   state.outbox = { note: '' };
   syncNav();
   showOutbox('');
@@ -411,7 +412,7 @@ async function select(id, { keepView = true } = {}) {
   state.selectedId = id;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   stopLearnPolling();
   if (!keepView) state.view = 'summary';
   clearInterval(state.draftTimer);
@@ -509,7 +510,7 @@ async function refreshDraft(id) {
 async function openProfile(address) {
   if (!address || !leaveCompose()) return;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   stopLearnPolling();
   state.profile = String(address).toLowerCase();
   state.profileTab = 'mails';
@@ -593,7 +594,7 @@ async function showLearn() {
 function openLearn() {
   if (!leaveCompose()) return;
   state.profile = null;
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   clearInterval(state.draftTimer);
   state.controller = null;
   state.learning = true;
@@ -656,14 +657,14 @@ function openContacts() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.rules = state.sig = null;
+  state.rules = state.sig = state.tasks = null;
   state.contacts = { q: '', source: '', limit: 200, note: '' };
   syncNav();
   showContacts('');
 }
 
 function closeContacts() {
-  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.contacts = state.outbox = state.rules = state.sig = state.tasks = null;
   if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
   else clearDetail();
 }
@@ -718,7 +719,7 @@ function openRules() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.sig = null;
+  state.contacts = state.outbox = state.sig = state.tasks = null;
   state.rules = { doc: null, text: false, note: '', reload: false };
   syncNav();
   showRules('');
@@ -778,14 +779,62 @@ function openSignature() {
   state.controller = null;
   state.profile = null;
   state.learning = false;
-  state.contacts = state.outbox = state.rules = null;
+  state.contacts = state.outbox = state.rules = state.tasks = null;
   state.sig = { note: '' };
   syncNav();
   showSignature('');
 }
 
 function closeSignature() {
-  state.sig = null;
+  state.sig = state.tasks = null;
+  if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
+  else clearDetail();
+}
+
+// --- Aufgabenliste (Optionen): Ansicht statt Detail
+async function showTasks(note = state.tasks?.note || '') {
+  const t = state.tasks;
+  if (!t) return;
+  let info;
+  try {
+    info = await api.tasksFile();
+  } catch (e) {
+    toast(e.message, { error: true });
+    return closeTasks();
+  }
+  if (state.tasks !== t) return;
+  t.note = note;
+  const change = async (payload, text) => {
+    try {
+      await api.action('tasks-file', payload);
+      return showTasks(text);
+    } catch (e) {
+      toast(e.message, { error: true });
+    }
+  };
+  renderTasksFile($('detail'), info, {
+    back: closeTasks,
+    save: (path) => change({ op: 'set', path }, 'Aufgabenliste gespeichert.'),
+    reset: () => change({ op: 'reset' }, 'Es gilt wieder die Datei aus config.json.'),
+    browse: (dir) => api.browse(dir),
+  }, note);
+}
+
+function openTasks() {
+  if (!leaveCompose()) return;
+  clearInterval(state.draftTimer);
+  stopLearnPolling();
+  state.controller = null;
+  state.profile = null;
+  state.learning = false;
+  state.contacts = state.outbox = state.rules = state.sig = null;
+  state.tasks = { note: '' };
+  syncNav();
+  showTasks('');
+}
+
+function closeTasks() {
+  state.tasks = null;
   if (state.selectedId != null && findItem(state.selectedId)) select(state.selectedId);
   else clearDetail();
 }
@@ -797,6 +846,7 @@ $('contacts-link').addEventListener('click', openContacts);
 $('learn-link').addEventListener('click', openLearn);
 $('rules-link').addEventListener('click', openRules);
 $('signature-link').addEventListener('click', openSignature);
+$('tasks-link').addEventListener('click', openTasks);
 
 // Optionen: ein Menü für Kontakte, Lernen und Regeln
 {

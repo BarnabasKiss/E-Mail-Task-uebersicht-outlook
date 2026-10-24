@@ -39,6 +39,8 @@ const claude = createClaude({ ...cfg.claude, cwd: cfg.dataDir });
 const store = createStore(dataFile('state.json'));
 const vault = createVault({ dir: cfg.vault.dir, tasksFile: cfg.vault.tasksFile, backupDir: dataFile('backups') });
 // Relativ = im App-Ordner (cfg.root), absolut = beliebiger Ort. Nicht im Vault.
+const savedTasks = store.get('settings', 'tasksPath');
+if (savedTasks) vault.setFile(savedTasks);
 const rules = createRules({ file: path.resolve(cfg.root, cfg.rulesFile) });
 const matcher = createMatcher({ claude, vault, store });
 

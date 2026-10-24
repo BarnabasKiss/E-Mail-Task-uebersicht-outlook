@@ -8,3 +8,6 @@ Mail-Regeln.md
 node_modules/
 .DS_Store
 Thumbs.db
+
+# Design-Experiment (Wegwerf, siehe design-lab/README.md)
+design-lab/

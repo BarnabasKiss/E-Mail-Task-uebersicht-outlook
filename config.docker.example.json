@@ -21,7 +21,7 @@
     "model": "sonnet",
     "timeoutMs": 180000
   },
-  "speech": { "enabled": false },
+  "speech": { "enabled": true, "python": "/opt/speech-venv/bin/python", "model": "large-v3-turbo", "language": "de" },
   "poll": {
     "proposalsSec": 120,
     "archiveSec": 300,

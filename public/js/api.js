@@ -28,6 +28,8 @@ export const api = {
     return data.text;
   },
   outbox: () => request('GET', '/api/outbox'),
+  tasksFile: () => request('GET', '/api/tasks-file'),
+  browse: (dir = '') => request('GET', `/api/browse${dir ? `?dir=${encodeURIComponent(dir)}` : ''}`),
   composeInfo: () => request('GET', '/api/compose-info'),
   contact: (address) => request('GET', `/api/contacts/${encodeURIComponent(address)}`),
   historyLearn: () => request('GET', '/api/history-learn'),
